@@ -1,0 +1,67 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start LangGraph Server (Debug)",
+      "type": "shell",
+      "command": "npm run dev:debug",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "Server running"
+        }
+      }
+    },
+    {
+      "label": "Debug Pipeline (start)",
+      "type": "shell",
+      "command": "NODE_OPTIONS='--inspect=0.0.0.0:9229 --enable-source-maps' npx tsx src/debug-run.ts",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Debugger listening",
+          "endsPattern": "^$"
+        }
+      }
+    },
+    {
+      "label": "Debug Tests (start)",
+      "type": "shell",
+      "command": "NODE_OPTIONS='--inspect=0.0.0.0:9229 --enable-source-maps' npx vitest run --no-file-parallelism",
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Debugger listening",
+          "endsPattern": "^$"
+        }
+      }
+    },
+    {
+      "label": "fix",
+      "type": "shell",
+      "command": "npm run fix",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": ["$eslint-compact"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}
