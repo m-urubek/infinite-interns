@@ -1,0 +1,6 @@
+{
+  "permissions": {
+    "allow": ["Bash(npx eslint src/invoke-agent-graph/invoke-agent-graph.ts)", "WebSearch"],
+    "additionalDirectories": ["/home/pc/Coding/infinite-interns/ts-plugins"]
+  }
+}

@@ -21,8 +21,7 @@ module.exports = {
   meta: {
     type: "problem",
     docs: {
-      description:
-        "Detect exported symbols that are not imported anywhere in the package",
+      description: "Detect exported symbols that are not imported anywhere in the package",
       recommended: true,
     },
     schema: [
@@ -72,10 +71,7 @@ module.exports = {
                 file: filename,
               });
             }
-          } else if (
-            declaration.declarations &&
-            Array.isArray(declaration.declarations)
-          ) {
+          } else if (declaration.declarations && Array.isArray(declaration.declarations)) {
             // export const x = ..., y = ...
             declaration.declarations.forEach((decl) => {
               const name = decl.id.name;
@@ -109,8 +105,7 @@ module.exports = {
       CallExpression(node) {
         if (
           node.callee.name === "require" ||
-          (node.callee.type === "MemberExpression" &&
-            node.callee.object.name === "require")
+          (node.callee.type === "MemberExpression" && node.callee.object.name === "require")
         ) {
           packageState.imports.add("*");
         }

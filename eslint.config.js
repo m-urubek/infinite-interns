@@ -6,11 +6,15 @@ import { createRequire } from "module";
 const require = createRequire(import.meta.url);
 const enforceExplicitTypes = require("./eslint-rules/enforce-explicit-types.cjs");
 const noUnusedExports = require("./eslint-rules/no-unused-exports.cjs");
+const enforceNamespaceImports = require("./eslint-rules/enforce-namespace-imports.cjs");
+const enforceBrackets = require("./eslint-rules/enforce-brackets.cjs");
 
 const localPlugin = {
   rules: {
     "enforce-explicit-types": enforceExplicitTypes,
     "no-unused-exports": noUnusedExports,
+    "enforce-namespace-imports": enforceNamespaceImports,
+    "enforce-brackets": enforceBrackets,
   },
 };
 
@@ -67,10 +71,15 @@ export default [
       "@typescript-eslint/no-unsafe-return": "off",
       "@typescript-eslint/no-unsafe-argument": "off",
 
-      // Unused variables/parameters
+      // Unused variables/parameters and imports
       "@typescript-eslint/no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
       ],
       "no-unused-vars": "off",
 
@@ -108,13 +117,13 @@ export default [
           checkReturns: true,
           allowReturnMemberExpressions: true,
           allowReturnUndefined: true,
-          allowReturnNull: false,
-          allowReturnBooleans: false,
           allowReturnEmptyString: true,
           // TypeScript errors (replaces tsc --noEmit)
           checkTypescriptErrors: true,
           // Duplicate variables in same function
           checkDuplicateVariables: true,
+          // Explicit nullability — every type must include | null | undefined or NonNullable<>
+          checkExplicitNullability: true,
         },
       ],
 
@@ -122,6 +131,21 @@ export default [
       // NOTE: Package-level unused export detection requires a tool outside ESLint's per-file architecture
       // Use 'npm run check-exports' or 'ts-unused-exports' for package-wide analysis
       "local/no-unused-exports": "off",
+
+      // Enforce `import { type Foo }` for type-only bindings (inline style)
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        {
+          prefer: "type-imports",
+          fixStyle: "inline-type-imports",
+        },
+      ],
+
+      // Custom rule: enforce namespace imports (import * as Name)
+      "local/enforce-namespace-imports": "error",
+
+      // Custom rule: enforce brackets on control structures (auto-fixes silently)
+      "local/enforce-brackets": "error",
     },
   },
 ];

@@ -3,7 +3,8 @@
     "allow": [
       "WebFetch(domain:docs.langchain.com)",
       "Bash(grep -n \"export.*Schema\\\\|export const.*schema\" /home/pc/Coding/orchestration-tools/src/agents/*.ts)",
-      "Bash(npm run fix)"
+      "Bash(npm run fix)",
+      "Bash(npx eslint src/invoke-agent-graph/invoke-agent-types.ts)"
     ]
   }
 }

@@ -5,20 +5,16 @@
 
 ## Project Overview
 
-Orchestration Tools is a LangChain-based implementation of an autonomous software development pipeline. It uses LangGraph to orchestrate 9 specialized AI agents that collaborate to implement features from a task description through PRD generation, planning, implementation, and verification.
+Orchestration Tools is a LangChain-based autonomous software development pipeline. It uses LangGraph to orchestrate specialized AI agents that collaborate to implement features from a task description. The project is in active development — the architecture has been modularized into composable subgraphs, with only the PRD generator agent currently implemented. Other agents will be added incrementally.
 
 **Key Architecture Note:** The system uses the `deepagents` npm package from LangChain, which provides built-in filesystem tools, planning capabilities, and subagent support. Agents use custom wrapper backends (`ReadOnlyBackend`, `ReadOnlyShellBackend`) to enforce permission boundaries.
 
-### Original Project Reference
-
-This is a reimplementation of `claude-orchestration` (located at `/home/pc/Coding/claude-orchestration`), originally built with custom Claude API calls. The new implementation leverages LangChain/LangGraph ecosystem to minimize custom code.
-
 ## Technology Stack
 
-- **Framework**: LangChain + LangGraph (TypeScript)
+- **Framework**: LangChain + LangGraph (TypeScript, ES Modules)
 - **LLM Provider**: Google Gemini (`gemini-3-flash-preview` model)
 - **Agent Framework**: `deepagents` v1.8.1 (provides filesystem tools, planning, subagents)
-- **Orchestration**: LangGraph StateGraph with conditional routing
+- **Orchestration**: LangGraph StateGraph with subgraph composition
 - **Structured Output**: Zod schemas via `responseFormat`
 - **Development Server**: `@langchain/langgraph-cli` (LangGraph Studio integration)
 - **Testing**: Vitest
@@ -39,237 +35,147 @@ This is a reimplementation of `claude-orchestration` (located at `/home/pc/Codin
 
 ```
 src/
-├── agents/                    # 9 specialized agents
-│   ├── prd-generator.ts       # Generates PRD from task description
-│   ├── prd-analyzer.ts        # Analyzes PRD for gaps (interactive mode)
-│   ├── business-analyzer.ts   # Analyzes PRD for business gaps (autonomous mode)
-│   ├── clarification-answerer.ts  # Answers technical questions from analyzer
-│   ├── planner.ts             # Divides PRD into sequential assignments
-│   ├── microplanner.ts        # Creates step-by-step implementation plan
-│   ├── implementer.ts         # Writes actual code (ONLY agent with write access)
-│   ├── verifier.ts            # Verifies each assignment's implementation
-│   └── final-verifier.ts      # Final verification against full PRD
-├── pipeline.ts                # Main LangGraph orchestration graph
-├── pipeline-state.ts          # State schema and routing functions
-├── shared.ts                  # LLM instance, backend wrappers
-├── agent-types.ts             # TypeScript type definitions
-├── pipeline.test.ts           # Test suite
-└── debug-run.ts               # Debug runner script
+├── agents/                           # Specialized agents (each in own directory)
+│   └── prd-generator/                # PRD generation agent
+│       ├── prd-generator-graph.ts    # Subgraph: setup → invoke → process
+│       └── prd-generator-types.ts    # State types for PRD generator
+├── backends/                         # Permission-enforcing backend wrappers
+│   ├── read-only-backend.ts          # Read-only filesystem (blocks write/edit)
+│   └── read-only-shell-backend.ts    # Read + execute (blocks write/edit)
+├── invoke-agent-graph/               # Reusable agent invocation subgraph
+│   ├── invoke-agent-graph-factory.ts # Factory: creates invoke subgraph with retries
+│   ├── invoke-agent-internal-utility.ts # Core: instantiates deepagent + validates output
+│   ├── invoke-agent-types.ts         # State/IO types for invoke graph
+│   └── invoke-agent-annotations.ts   # LangGraph annotations (legacy, mostly commented)
+├── main-pipeline-graph/              # Top-level pipeline orchestration
+│   ├── main-pipeline-graph.ts        # Main graph: currently prdGenerator only
+│   ├── main-pipeline-annotations.ts  # State annotations for pipeline
+│   ├── main-pipeline-types.ts        # Type definitions (ClarifyingQuestion, etc.)
+│   └── main-pipeline-utility.ts      # (empty, placeholder)
+└── shared/                           # Shared utilities
+    ├── gemini-flash-model.ts         # Singleton Gemini Flash LLM instance
+    ├── shared-types.ts               # Common type aliases (AnnotationRoot)
+    └── shared-utility.ts             # Helpers: lastValue, isNotNull, sleep, etc.
 
-langgraph.json                 # LangGraph CLI configuration
-.env                           # Environment variables
+eslint-rules/                         # Custom ESLint rules
+├── enforce-explicit-types.cjs        # Strict typing enforcement
+├── enforce-namespace-imports.cjs     # import * as Name style
+├── enforce-brackets.cjs              # Control structure brackets
+└── no-unused-exports.cjs             # Unused export detection (currently off)
+
+ts-plugins/                           # TypeScript compiler plugins
+└── namespace-import-plugin/          # Enforces namespace imports at TS level
+
+langgraph.json                        # LangGraph CLI config (needs update)
 ```
 
-## Agent Permission Model
+## Architecture Patterns
+
+### 1. Composable Subgraph Pattern
+
+The pipeline is built from composable LangGraph subgraphs. Each agent is a self-contained subgraph that can be independently tested and composed into the main pipeline.
+
+```
+Main Pipeline Graph
+  └── PRD Generator Subgraph
+        └── Invoke Agent Subgraph (reusable)
+              └── DeepAgent (from deepagents package)
+```
+
+### 2. Invoke Agent Graph (Reusable)
+
+The `invoke-agent-graph` module is a generic, reusable subgraph for invoking any deepagent with retry logic. Created via factory function:
+
+```typescript
+createInvokeAgentGraph(
+  backendClass,         // Backend type (ReadOnly, ReadOnlyShell, LocalShell)
+  model,                // LLM model instance
+  systemPrompt,         // Agent system prompt
+  responseZod,          // Zod schema for structured output validation
+  maxInSessionAttempts,  // Retries within same session (default 3)
+  maxSessionAttempts     // Fresh session retries (default 3)
+)
+```
+
+**Flow:** firstInvoke → [success? → end] / [fail? → repeat → ...]
+
+Retry logic includes exponential backoff (5s sleep between retries).
+
+### 3. Agent Directory Pattern
+
+Each agent lives in its own directory under `src/agents/` with:
+- `*-graph.ts` — The subgraph definition (setup → invoke → process nodes)
+- `*-types.ts` — State and IO type definitions
+
+### 4. Backend Permission Model
 
 Agents have different filesystem access levels enforced at the backend level:
 
-| Agent                  | Backend                | Capabilities                                 |
-| ---------------------- | ---------------------- | -------------------------------------------- |
-| prd-generator          | `ReadOnlyBackend`      | read_file, glob, grep, ls (NO write)         |
-| prd-analyzer           | `ReadOnlyBackend`      | read_file, glob, grep, ls (NO write)         |
-| business-analyzer      | `ReadOnlyBackend`      | read_file, glob, grep, ls (NO write)         |
-| planner                | `ReadOnlyBackend`      | read_file, glob, grep, ls (NO write)         |
-| microplanner           | `ReadOnlyBackend`      | read_file, glob, grep, ls (NO write)         |
-| clarification-answerer | `ReadOnlyShellBackend` | read + execute (NO write)                    |
-| verifier               | `ReadOnlyShellBackend` | read + execute (NO write)                    |
-| final-verifier         | `ReadOnlyShellBackend` | read + execute (NO write)                    |
-| **implementer**        | `LocalShellBackend`    | **FULL ACCESS** (read, write, edit, execute) |
-
-### Backend Wrappers (src/shared.ts)
-
-- **`ReadOnlyBackend`**: Wraps `FilesystemBackend`, blocks `write()` and `edit()` with error messages
-- **`ReadOnlyShellBackend`**: Wraps `LocalShellBackend`, adds `execute()` but blocks `write()` and `edit()`
+| Backend              | Capabilities                              | Use Case                    |
+| -------------------- | ----------------------------------------- | --------------------------- |
+| `ReadOnlyBackend`    | read_file, glob, grep, ls (NO write)      | Analysis-only agents        |
+| `ReadOnlyShellBackend` | read + execute (NO write)               | Verification agents         |
+| `LocalShellBackend`  | **FULL ACCESS** (read, write, execute)    | Implementation agents       |
 
 When a read-only agent attempts to write, it receives an error response rather than silently succeeding.
 
+## Currently Implemented
+
+### PRD Generator Agent
+
+- **Purpose**: Generates a Product Requirements Document from a task description
+- **Backend**: `ReadOnlyBackend` (read-only filesystem access)
+- **Zod Schema**: Validates `precision` (0-100) and `prd` (min 100 chars)
+- **System Prompt**: Instructions to analyze codebase using tools, incorporate clarifications, generate PRD with sections: Overview, Requirements, Acceptance Criteria, Constraints, Out of Scope
+
+### Main Pipeline
+
+- **Input**: `assignment` (task description) + `projectDir` (target project path)
+- **Current Flow**: `__start__` → `prdGeneratorGraph` → `__end__`
+- **Checkpointing**: Uses `MemorySaver` for in-memory state persistence
+- **Exports**: Both compiled `graph` and uncompiled `graphBuilder`
+
 ## Core Data Models
 
-### Assignment
+### ClarifyingQuestion
 
 ```typescript
-type Assignment = {
-  id: string; // kebab-case identifier
-  title: string; // Human-readable title
-  description: string; // Detailed implementation instructions
-  dependsOn: Array<string>; // IDs of prerequisite assignments
-  estimatedFiles: Array<string>; // Expected files to create/modify
+type ClarifyingQuestion = {
+  question: string;
+  answer: string | null | undefined;
+};
+
+type ClarifyingQuestions = Array<ClarifyingQuestion>;
+```
+
+### InvokeAgentState
+
+```typescript
+type InvokeAgentState = {
+  input: InvokeAgentInput;    // { conversationHistory, userMessage }
+  output: InvokeAgentOutput;  // { result: ZodObject output }
+  internal: InvokeAgentInternal; // { succeeded, errorMessage, attempt counters }
 };
 ```
 
-### Clarification
+### PrdGeneratorState
 
 ```typescript
-type Clarification = {
-  question: string; // The question asked
-  answer: string; // Answer based on codebase analysis
-  confident: boolean; // Whether the answer is confident
+type PrdGeneratorState = {
+  input: PrdGeneratorInput;   // { assignment, clarifications }
+  output: PrdGeneratorOutput; // { prd, clarifications }
 };
 ```
 
-### PipelineMode
+## Shared Utilities
 
-```typescript
-type PipelineMode = "interactive" | "autonomous";
-```
-
-- **interactive**: Uses `prd-analyzer` for detailed technical analysis
-- **autonomous**: Uses `business-analyzer` for high-level business questions only
-
-## Pipeline State Schema
-
-### Input Fields (Required)
-
-```typescript
-task: string; // Task description to implement
-projectDir: string; // Absolute path to target project
-```
-
-### Input Fields (Optional)
-
-```typescript
-mode: PipelineMode; // Default: "autonomous"
-buildCommands: Array<string>; // Build commands to run for verification
-```
-
-### Computed State
-
-```typescript
-prd: string; // Generated PRD document
-analysisResult: string; // JSON analysis from analyzer
-clarifications: Array<Clarification>; // Q&A history
-clarificationRound: number; // Current clarification iteration
-needsClarification: boolean; // Whether more clarification needed
-
-assignments: Array<Assignment>; // Implementation plan
-currentAssignmentIndex: number; // Current assignment being worked on
-
-microplan: string; // Detailed steps for current assignment
-implementationResult: string; // Output from implementer
-implementationAttempt: number; // Retry counter
-verificationPassed: boolean; // Per-assignment verification
-verificationFeedback: string; // Feedback for failed verification
-
-finalVerificationPassed: boolean; // Full PRD verification
-pipelineRetries: number; // Full pipeline retry counter
-status: string; // Current pipeline status
-```
-
-## Pipeline Flow
-
-```
-┌─────────────────┐
-│   __start__    │
-└───────┬─────────┘
-        ▼
-┌─────────────────┐
-│  generatePrd    │ ◄──────────────────────┐
-└───────┬─────────┘                        │
-        ▼                                  │
-┌─────────────────┐                        │
-│   analyzePrd    │                        │
-└───────┬─────────┘                        │
-        │                                  │
-        ├── needsClarification? ──Yes──┐   │
-        │                              ▼   │
-        │                 ┌─────────────────┐
-        │                 │answerClarifications│
-        │                 └───────┬─────────┘
-        │                         │
-        │◄────────────────────────┘
-        │
-        ▼ (No clarification needed)
-┌─────────────────┐
-│   createPlan    │
-└───────┬─────────┘
-        ▼
-┌─────────────────┐
-│ createMicroplan │◄──────────────────────┐
-└───────┬─────────┘                       │
-        ▼                                 │
-┌─────────────────┐                       │
-│   implement     │                       │
-└───────┬─────────┘                       │
-        ▼                                 │
-┌─────────────────┐                       │
-│     verify      │                       │
-└───────┬─────────┘                       │
-        │                                 │
-        ├── !passed && retries < 3 ───────┘
-        │
-        ├── more assignments? ────────────┘
-        │
-        ▼ (All assignments done)
-┌─────────────────┐
-│   finalVerify   │
-└───────┬─────────┘
-        │
-        ├── !passed && retries < 2 ────► generatePrd
-        │
-        ▼
-┌─────────────────┐
-│    __end__     │
-└─────────────────┘
-```
-
-## Pipeline Limits
-
-```typescript
-MAX_CLARIFICATION_ROUNDS = 5; // Max Q&A iterations
-MAX_IMPLEMENTATION_RETRIES = 3; // Max retries per assignment
-MAX_PIPELINE_RETRIES = 2; // Max full pipeline retries
-```
-
-## Structured Output Schemas
-
-Most agents use `responseFormat` with Zod schemas to enforce JSON output:
-
-### PRD Analyzer Response
-
-```typescript
-{
-  needsClarification: boolean,
-  questions: Array<{ question: string, reason: string }>,
-  confidence: number,  // 1-10
-  reasoning: string
-}
-```
-
-### Planner Response
-
-```typescript
-{
-  assignments: Array<{
-    id: string;
-    title: string;
-    description: string;
-    dependsOn: Array<string>;
-    estimatedFiles: Array<string>;
-  }>;
-}
-```
-
-### Verifier Response
-
-```typescript
-{
-  passed: boolean,
-  issues: Array<{ severity: "error" | "warning", file: string, description: string }>,
-  buildPassed: boolean,
-  buildOutput: string
-}
-```
-
-### Final Verifier Response
-
-```typescript
-{
-  passed: boolean,
-  commitMessage: string,    // Conventional commit message
-  feedback: string,         // Empty if passed
-  unmetRequirements: Array<string>
-}
-```
+- **`lastValue<T>()`**: "Last write wins" reducer for LangGraph state annotations
+- **`isNotNullOrUndf()`**: Type guard for non-null/undefined values
+- **`isNotNullOrEmpty()`**: Type guard for non-empty arrays/strings
+- **`applyDefault<T>()`**: Apply default value if target is null/undefined
+- **`sleep()`**: Promise-based sleep using Node timers
+- **`geminiFlashLLMMedium`**: Singleton Gemini Flash model (temp 0.5)
+- **`AnnotationRoot`**: Type alias for LangGraph `Annotation.Root` return type
 
 ## Running the Project
 
@@ -279,82 +185,23 @@ Most agents use `responseFormat` with Zod schemas to enforce JSON output:
 npm run dev
 ```
 
-Opens LangGraph Studio at `http://localhost:8123`. Use the Studio UI to:
-
-- Configure and launch pipeline runs
-- Visualize graph execution
-- Debug agent interactions
+Opens LangGraph Studio at `http://localhost:8123`.
 
 ### Environment Variables
 
 ```env
-GOOGLE_API_KEY=your-api-key
+GOOGLE_API_KEY=your-google-api-key
 LANGSMITH_API_KEY=your-langsmith-key  # Optional, for tracing
+LANGGRAPH_SCHEMA_RESOLVE_TIMEOUT_MS=120000
 ```
 
-## Common Patterns
+## Lint and TypeScript
 
-### Agent Factory Pattern
-
-Each agent exports two functions:
-
-```typescript
-// For pipeline use - creates agent with specific projectDir
-export function create(projectDir: string): DeepAgent;
-
-// For LangGraph Studio testing - reads projectDir from config
-export function makeGraph(config?: GraphConfig): DeepAgent;
-```
-
-### Invoking Agents in Pipeline
-
-```typescript
-const result = await agent.invoke({
-  messages: [{ role: "user", content: userMessage }],
-});
-
-// Check for structured response first (from responseFormat)
-if (result.structuredResponse) {
-  return JSON.stringify(result.structuredResponse);
-}
-// Fallback to last message content
-return result.messages.at(-1)?.content;
-```
-
-## Important Notes
-
-### Gemini Configuration
-
-- **Model**: `gemini-3-flash-preview` - Cheap and fast with thinking capabilities
-- **Temperature**: Set to 0.5
-- **Structured Output**: Full support via `responseFormat` with Zod schemas
-
-### Future Capabilities
-
-The `deepagents` package provides built-in support for:
-
-- **Subagents**: `task` tool and `subagents` config parameter
-- **Planning**: `write_todos` tool
-- **Context management**: Automatic summarization and offloading
-
-These are available for future expansion without additional implementation.
-
-## Testing
-
-```bash
-npm run test        # Run tests once
-npm run test:watch  # Watch mode
-```
-
-Tests use Vitest and mock the LLM responses to verify pipeline routing logic.
-
-## Lint and typescript
-
-Always run `npm run fix` when you make changes in .ts files. This runs lint check, typescript check and automatic fixes. It returns even typescript errors, not only lints. So this command is all you need to check your code.
+Always run `npm run fix` when you make changes in .ts files. This runs formatting (Prettier), lint check (ESLint with auto-fix), and TypeScript type checking. It returns even TypeScript errors, not only lints. This command is all you need to check your code.
 
 ## Code Style Requirements
 
-This project uses a custom ESLint rule (`enforce-explicit-types`) that enforces strict typing patterns different from typical TypeScript defaults.
+This project uses custom ESLint rules that enforce strict typing patterns different from typical TypeScript defaults.
 
 ### 1. Explicit Type Annotations Required
 
@@ -479,5 +326,42 @@ function process(): void {
   result = step2();
 }
 ```
+
+### 5. Namespace Imports
+
+All imports must use namespace import style:
+
+```typescript
+// ❌ BAD
+import { StateGraph } from "@langchain/langgraph";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+
+// ✅ GOOD
+import * as LangGraph from "@langchain/langgraph";
+import * as LangChainGoogleGenai from "@langchain/google-genai";
+```
+
+Type-only imports use inline `type` keyword:
+
+```typescript
+import { type SomeType } from "./types.js";
+```
+
+### 6. Bracket Enforcement
+
+All control structures (if, else, for, while, etc.) must use brackets, even for single-line bodies.
+
+## Agents Planned for Future Implementation
+
+The following agents existed in the previous architecture and will be re-added as modular subgraphs:
+
+- **PRD Analyzer** — Analyzes PRD for gaps (interactive mode)
+- **Business Analyzer** — Analyzes PRD for business gaps (autonomous mode)
+- **Clarification Answerer** — Answers technical questions from analyzers
+- **Planner** — Divides PRD into sequential assignments
+- **Microplanner** — Creates step-by-step implementation plans
+- **Implementer** — Writes actual code (only agent with full write access)
+- **Verifier** — Verifies each assignment's implementation
+- **Final Verifier** — Final verification against full PRD
 
 </context>

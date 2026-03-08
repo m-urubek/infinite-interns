@@ -1,8 +1,8 @@
 {
   "node_version": "20",
   "graphs": {
-    "pipeline": "./src/pipeline.ts:graph",
-    "invokeAgent": "./src/agent-invoke.graph.ts:invokeAgentGraph"
+    "pipeline": "./src/main-pipeline-graph/main-pipeline-graph.ts:graph",
+    "prdGenerator": "./src/agents/prd-generator/prd-generator-graph.ts:prdGeneratorGraph"
   },
   "env": ".env"
 }

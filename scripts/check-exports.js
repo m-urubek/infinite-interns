@@ -32,13 +32,11 @@ const exportPatterns = {
   // export class X {}
   // export type X = ...
   // export interface X {}
-  declaration:
-    /export\s+(const|let|var|function|class|type|interface)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g,
+  declaration: /export\s+(const|let|var|function|class|type|interface)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g,
   // export { x, y, z }
   namedExports: /export\s*\{([^}]+)\}/g,
   // import from
-  imports:
-    /import\s+(?:\{([^}]+)\}|(?:\*\s+as\s+)?([a-zA-Z_$][a-zA-Z0-9_$]*)|([a-zA-Z_$][a-zA-Z0-9_$]*))/g,
+  imports: /import\s+(?:\{([^}]+)\}|(?:\*\s+as\s+)?([a-zA-Z_$][a-zA-Z0-9_$]*)|([a-zA-Z_$][a-zA-Z0-9_$]*))/g,
 };
 
 /**
@@ -72,17 +70,10 @@ function getAllFiles(dir, filter) {
     for (const entry of entries) {
       const fullPath = path.join(currentPath, entry.name);
 
-      if (
-        entry.isDirectory() &&
-        !entry.name.startsWith(".") &&
-        entry.name !== "node_modules"
-      ) {
+      if (entry.isDirectory() && !entry.name.startsWith(".") && entry.name !== "node_modules") {
         walk(fullPath);
       } else if (entry.isFile()) {
-        if (
-          /\.(ts|tsx|js|jsx)$/.test(entry.name) &&
-          (!filter || filter(fullPath))
-        ) {
+        if (/\.(ts|tsx|js|jsx)$/.test(entry.name) && (!filter || filter(fullPath))) {
           files.push(fullPath);
         }
       }
@@ -103,9 +94,7 @@ function parseExports(filePath) {
   const exports = [];
 
   // Skip index files - they're meant to re-export
-  const isIndexFile = config.indexFilePatterns.some((pattern) =>
-    filePath.endsWith(pattern),
-  );
+  const isIndexFile = config.indexFilePatterns.some((pattern) => filePath.endsWith(pattern));
   if (isIndexFile) {
     return exports;
   }
@@ -113,8 +102,7 @@ function parseExports(filePath) {
   let match;
 
   // Find named declarations: export const/function/class/type/interface
-  const declRegex =
-    /export\s+(const|let|var|function|class|type|interface)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+  const declRegex = /export\s+(const|let|var|function|class|type|interface)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
   while ((match = declRegex.exec(content)) !== null) {
     const name = match[2];
     if (!config.ignoreUnderscorePrefixed || !name.startsWith("_")) {
@@ -127,11 +115,7 @@ function parseExports(filePath) {
   const namedRegex = /export\s*\{([^}]+)\}/g;
   while ((match = namedRegex.exec(content)) !== null) {
     const names = match[1];
-    const nameMatches = [
-      ...names.matchAll(
-        /([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?:as\s+([a-zA-Z_$][a-zA-Z0-9_$]*))?/g,
-      ),
-    ];
+    const nameMatches = [...names.matchAll(/([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?:as\s+([a-zA-Z_$][a-zA-Z0-9_$]*))?/g)];
     for (const nameMatch of nameMatches) {
       const name = nameMatch[2] || nameMatch[1]; // Use alias if present
       if (!config.ignoreUnderscorePrefixed || !name.startsWith("_")) {
@@ -158,11 +142,7 @@ function parseImports(filePath) {
   let match;
   while ((match = namedRegex.exec(content)) !== null) {
     const names = match[1];
-    const nameMatches = [
-      ...names.matchAll(
-        /([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?:as\s+([a-zA-Z_$][a-zA-Z0-9_$]*))?/g,
-      ),
-    ];
+    const nameMatches = [...names.matchAll(/([a-zA-Z_$][a-zA-Z0-9_$]*)\s*(?:as\s+([a-zA-Z_$][a-zA-Z0-9_$]*))?/g)];
     for (const nameMatch of nameMatches) {
       const localName = nameMatch[2] || nameMatch[1]; // Use alias if present
       imports.add(localName);
@@ -170,8 +150,7 @@ function parseImports(filePath) {
   }
 
   // import * as x from "..."
-  const starRegex =
-    /import\s+\*\s+as\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s+from\s+["']/g;
+  const starRegex = /import\s+\*\s+as\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s+from\s+["']/g;
   while ((match = starRegex.exec(content)) !== null) {
     imports.add(match[1]);
   }
@@ -255,12 +234,8 @@ function checkUnusedExports() {
   for (const exp of unused.sort((a, b) => a.file.localeCompare(b.file))) {
     const relPath = path.relative(projectRoot, exp.file);
     console.log(`  ${relPath}:${exp.line}`);
-    console.log(
-      `    Export '${exp.name}' is not imported anywhere in the package`,
-    );
-    console.log(
-      `    → Re-export from index.ts or remove if no longer needed\n`,
-    );
+    console.log(`    Export '${exp.name}' is not imported anywhere in the package`);
+    console.log(`    → Re-export from index.ts or remove if no longer needed\n`);
   }
 
   process.exit(1);

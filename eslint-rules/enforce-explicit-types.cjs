@@ -15,11 +15,11 @@ module.exports = {
   meta: {
     type: "suggestion",
     docs: {
-      description:
-        "Enforce explicit types, named type aliases, and variable returns",
+      description: "Enforce explicit types, named type aliases, and variable returns",
       recommended: false,
     },
     fixable: "code",
+    hasSuggestions: true,
     schema: [
       {
         type: "object",
@@ -103,14 +103,6 @@ module.exports = {
             type: "boolean",
             default: true,
           },
-          allowReturnNull: {
-            type: "boolean",
-            default: false,
-          },
-          allowReturnBooleans: {
-            type: "boolean",
-            default: false,
-          },
           allowReturnEmptyString: {
             type: "boolean",
             default: true,
@@ -119,22 +111,26 @@ module.exports = {
           checkTypescriptErrors: {
             type: "boolean",
             default: true,
-            description:
-              "Report TypeScript compiler errors (replaces tsc --noEmit)",
+            description: "Report TypeScript compiler errors (replaces tsc --noEmit)",
           },
           // Duplicate variable names settings
           checkDuplicateVariables: {
             type: "boolean",
             default: true,
-            description:
-              "Disallow declaring variables with the same name multiple times in a function",
+            description: "Disallow declaring variables with the same name multiple times in a function",
           },
           // Return type consistency settings
           checkReturnTypeConsistency: {
             type: "boolean",
             default: true,
+            description: "Check that all return paths from a function return the same type",
+          },
+          // Explicit nullability settings
+          checkExplicitNullability: {
+            type: "boolean",
+            default: true,
             description:
-              "Check that all return paths from a function return the same type",
+              "Require every type annotation to explicitly include | null | undefined or be wrapped in NonNullable<>",
           },
         },
         additionalProperties: false,
@@ -142,40 +138,36 @@ module.exports = {
     ],
     messages: {
       // Type annotation messages
-      missingType:
-        'Missing explicit type annotation. Inferred type "{{type}}" is short enough to write explicitly.',
-      missingReturnType:
-        'Missing explicit return type. Inferred type "{{type}}" is short enough to write explicitly.',
+      missingType: 'Missing explicit type annotation. Inferred type "{{type}}" is short enough to write explicitly.',
+      missingReturnType: 'Missing explicit return type. Inferred type "{{type}}" is short enough to write explicitly.',
       missingTypeNeedsAlias:
         "Missing explicit type annotation. Inferred type is complex - create a named type alias for it using typeof or ReturnType.",
       missingReturnTypeNeedsAlias:
         "Missing explicit return type. Inferred type is complex - create a named type alias for it using typeof or ReturnType.",
       // Inline complex types messages
-      noInlineUnion:
-        "Inline union type not allowed. Extract to a named `type` alias.",
-      noInlineIntersection:
-        "Inline intersection type not allowed. Extract to a named `type` alias.",
-      noInlineObject:
-        "Inline object type not allowed. Extract to a named `type` alias.",
-      noInlineTuple:
-        "Inline tuple type not allowed. Extract to a named `type` alias.",
-      noInlineFunction:
-        "Inline function type not allowed. Extract to a named `type` alias.",
-      noInlineConditional:
-        "Inline conditional type not allowed. Extract to a named `type` alias.",
-      noInlineMapped:
-        "Inline mapped type not allowed. Extract to a named `type` alias.",
+      noInlineUnion: "Inline union type not allowed. Extract to a named `type` alias.",
+      noInlineIntersection: "Inline intersection type not allowed. Extract to a named `type` alias.",
+      noInlineObject: "Inline object type not allowed. Extract to a named `type` alias.",
+      noInlineTuple: "Inline tuple type not allowed. Extract to a named `type` alias.",
+      noInlineFunction: "Inline function type not allowed. Extract to a named `type` alias.",
+      noInlineConditional: "Inline conditional type not allowed. Extract to a named `type` alias.",
+      noInlineMapped: "Inline mapped type not allowed. Extract to a named `type` alias.",
       // Return value messages
-      noInlineReturn:
-        "Do not return inline values. Assign to a variable first, then return the variable.",
+      noInlineReturn: "Do not return inline values. Assign to a variable first, then return the variable.",
       // TypeScript error messages
       typescriptError: "TS{{code}}: {{message}}",
+      typescriptNullableError: "TS{{code}}: Value may be null or undefined.",
       // Duplicate variable messages
       duplicateVariable:
         'Variable "{{name}}" is already declared in this function. Declare it once at the top and assign to it or change the name if they don\'t share the same type.',
       // Return type consistency messages
       inconsistentReturnTypes:
         "Function returns inconsistent types across paths: {{types}}. Split into separate functions or unify the return type.",
+      // Explicit nullability messages
+      missingExplicitNullability:
+        "Type '{{type}}' must explicitly specify nullability. Add '| null | undefined' or wrap in NonNullable<>.",
+      suggestAddNullUndefined: "Add | null | undefined",
+      suggestWrapNonNullable: "Wrap in NonNullable<>",
     },
   },
 
@@ -197,19 +189,15 @@ module.exports = {
     const allowInlineObjectTypes = options.allowInlineObjectTypes ?? false;
     const allowInlineTuples = options.allowInlineTuples ?? false;
     const allowInlineFunctionTypes = options.allowInlineFunctionTypes ?? false;
-    const allowInlineConditionalTypes =
-      options.allowInlineConditionalTypes ?? false;
+    const allowInlineConditionalTypes = options.allowInlineConditionalTypes ?? false;
     const allowInlineMappedTypes = options.allowInlineMappedTypes ?? false;
     const maxUnionMembers = options.maxUnionMembers ?? 1;
     const maxTypeDepth = options.maxTypeDepth ?? 4;
 
     // Return value options
     const checkReturns = options.checkReturns ?? true;
-    const allowReturnMemberExpressions =
-      options.allowReturnMemberExpressions ?? true;
+    const allowReturnMemberExpressions = options.allowReturnMemberExpressions ?? true;
     const allowReturnUndefined = options.allowReturnUndefined ?? true;
-    const allowReturnNull = options.allowReturnNull ?? false;
-    const allowReturnBooleans = options.allowReturnBooleans ?? false;
     const allowReturnEmptyString = options.allowReturnEmptyString ?? true;
 
     // TypeScript errors options
@@ -219,8 +207,10 @@ module.exports = {
     const checkDuplicateVariables = options.checkDuplicateVariables ?? true;
 
     // Return type consistency options
-    const checkReturnTypeConsistency =
-      options.checkReturnTypeConsistency ?? true;
+    const checkReturnTypeConsistency = options.checkReturnTypeConsistency ?? true;
+
+    // Explicit nullability options
+    const checkExplicitNullability = options.checkExplicitNullability ?? true;
 
     const sourceCode = context.sourceCode;
     const parserServices = sourceCode.parserServices;
@@ -337,6 +327,11 @@ module.exports = {
         if ((flags & 2048) !== 0) {
           return "bigint";
         }
+
+        // Check for boolean literal (true / false)
+        if ((flags & 512) !== 0) {
+          return "boolean";
+        }
       }
 
       // Fallback: check string representation patterns
@@ -356,6 +351,11 @@ module.exports = {
       // Single bigint literal
       if (/^-?\d+n$/.test(typeString)) {
         return "bigint";
+      }
+
+      // Boolean literals
+      if (typeString === "true" || typeString === "false") {
+        return "boolean";
       }
 
       return typeString;
@@ -397,6 +397,32 @@ module.exports = {
 
     // ==================== TYPE ANNOTATION LOGIC ====================
 
+    /**
+     * Check if a type is or contains null/undefined union members.
+     */
+    function typeContainsNullOrUndefined(type) {
+      if (!type) return false;
+      // TypeFlags: Null = 65536, Undefined = 32768, Void = 16384
+      if ((type.flags & 65536) !== 0) return true;
+      if ((type.flags & 32768) !== 0) return true;
+      if ((type.flags & 16384) !== 0) return true;
+      if (type.isUnion && type.isUnion()) {
+        return type.types.some((t) => (t.flags & 65536) !== 0 || (t.flags & 32768) !== 0 || (t.flags & 16384) !== 0);
+      }
+      return false;
+    }
+
+    /**
+     * Get the non-nullable version of a type string by stripping null/undefined members.
+     */
+    function getNonNullableTypeString(type, tsNode) {
+      const nonNullType = type.getNonNullableType ? type.getNonNullableType() : null;
+      if (!nonNullType || nonNullType === type) return null;
+      const nonNullStr = checker.typeToString(nonNullType, tsNode, 0);
+      if (!nonNullStr || nonNullStr === "never") return null;
+      return simplifyLiteralType(nonNullType, nonNullStr);
+    }
+
     function getTypeInfo(node) {
       if (!checker || !esTreeNodeToTSNodeMap) return null;
 
@@ -412,16 +438,32 @@ module.exports = {
         let typeString = checker.typeToString(type, tsNode, 0);
 
         if (!typeString) return null;
-        if (
-          typeString === "any" ||
-          typeString === "unknown" ||
-          typeString === "never"
-        ) {
+        if (typeString === "any" || typeString === "unknown" || typeString === "never") {
           return null;
         }
 
         // Simplify single literal types to base types
-        const simplifiedType = simplifyLiteralType(type, typeString);
+        let simplifiedType = simplifyLiteralType(type, typeString);
+
+        // If the type contains null/undefined, check if the initializer value
+        // is actually non-nullable (control-flow narrowed). If so, use NonNullable.
+        if (typeContainsNullOrUndefined(type)) {
+          // Check if this is a variable declarator with an initializer
+          const parent = node.parent;
+          if (parent && parent.type === "VariableDeclarator" && parent.init) {
+            const initTsNode = esTreeNodeToTSNodeMap.get(parent.init);
+            if (initTsNode) {
+              const initType = checker.getTypeAtLocation(initTsNode);
+              if (initType && !typeContainsNullOrUndefined(initType)) {
+                // The initializer is non-nullable — use the non-nullable type directly
+                const nonNullStr = getNonNullableTypeString(type, tsNode);
+                if (nonNullStr) {
+                  simplifiedType = nonNullStr;
+                }
+              }
+            }
+          }
+        }
 
         const isShort = simplifiedType.length <= maxTypeLength;
         const isExternal = isTypeFromNodeModules(type);
@@ -459,26 +501,27 @@ module.exports = {
             insertPosition = lastParam;
           }
         } else {
-          const arrowToken = sourceCode.getTokenBefore(
-            node.body,
-            (token) => token.value === "=>",
-          );
+          const arrowToken = sourceCode.getTokenBefore(node.body, (token) => token.value === "=>");
           if (arrowToken) {
             const tokenBeforeArrow = sourceCode.getTokenBefore(arrowToken);
             insertPosition = tokenBeforeArrow;
           }
         }
       } else {
-        const openingBrace = sourceCode.getTokenBefore(
-          node.body,
-          (token) => token.value === "{",
-        );
-        if (openingBrace) {
-          const closingParen = sourceCode.getTokenBefore(
-            openingBrace,
-            (token) => token.value === ")",
-          );
-          insertPosition = closingParen;
+        if (node.params.length > 0) {
+          const lastParam = node.params[node.params.length - 1];
+          const tokenAfterParams = sourceCode.getTokenAfter(lastParam);
+          if (tokenAfterParams && tokenAfterParams.value === ")") {
+            insertPosition = tokenAfterParams;
+          } else {
+            insertPosition = lastParam;
+          }
+        } else {
+          const openParen = sourceCode.getFirstToken(node, (token) => token.value === "(");
+          if (openParen) {
+            const closeParen = sourceCode.getTokenAfter(openParen, (token) => token.value === ")");
+            insertPosition = closeParen;
+          }
         }
       }
 
@@ -494,10 +537,7 @@ module.exports = {
       if (node.id.typeAnnotation) return;
 
       if (ignoreDestructuring) {
-        if (
-          node.id.type === "ArrayPattern" ||
-          node.id.type === "ObjectPattern"
-        ) {
+        if (node.id.type === "ArrayPattern" || node.id.type === "ObjectPattern") {
           return;
         }
       }
@@ -556,11 +596,7 @@ module.exports = {
       if (!checkReturnTypes) return;
       if (node.returnType) return;
 
-      if (
-        isArrow &&
-        ignoreArrowShorthand &&
-        node.body.type !== "BlockStatement"
-      ) {
+      if (isArrow && ignoreArrowShorthand && node.body.type !== "BlockStatement") {
         return;
       }
 
@@ -576,12 +612,13 @@ module.exports = {
         const returnType = checker.getReturnTypeOfSignature(signature);
         let typeString = checker.typeToString(returnType);
 
-        if (
-          !typeString ||
-          typeString === "any" ||
-          typeString === "unknown" ||
-          typeString === "never"
-        ) {
+        if (!typeString || typeString === "any" || typeString === "unknown" || typeString === "never") {
+          return;
+        }
+
+        // Skip primitive return types (except string) — they are obvious from context
+        const primitiveReturnTypes = new Set(["boolean", "number", "bigint", "void", "undefined", "null", "symbol"]);
+        if (primitiveReturnTypes.has(typeString)) {
           return;
         }
 
@@ -649,8 +686,7 @@ module.exports = {
         typeNode.type === "TSTypeReference" &&
         typeNode.typeName &&
         typeNode.typeName.type === "Identifier" &&
-        (typeNode.typeName.name === "undefined" ||
-          typeNode.typeName.name === "null")
+        (typeNode.typeName.name === "undefined" || typeNode.typeName.name === "null")
       ) {
         return true;
       }
@@ -658,19 +694,14 @@ module.exports = {
     }
 
     function checkNullishUnion(unionNode) {
-      const nonNullishMembers = unionNode.types.filter(
-        (t) => !isNullOrUndefined(t),
-      );
+      const nonNullishMembers = unionNode.types.filter((t) => !isNullOrUndefined(t));
       return nonNullishMembers.length <= 1;
     }
 
     function isInsideTypeAlias(node) {
       let current = node.parent;
       while (current) {
-        if (
-          current.type === "TSTypeAliasDeclaration" ||
-          current.type === "TSInterfaceDeclaration"
-        ) {
+        if (current.type === "TSTypeAliasDeclaration" || current.type === "TSInterfaceDeclaration") {
           return true;
         }
         current = current.parent;
@@ -683,9 +714,7 @@ module.exports = {
       if (!parent) return false;
 
       return (
-        parent.type === "TSTypeAnnotation" ||
-        parent.type === "TSAsExpression" ||
-        parent.type === "TSTypeAssertion"
+        parent.type === "TSTypeAnnotation" || parent.type === "TSAsExpression" || parent.type === "TSTypeAssertion"
       );
     }
 
@@ -824,7 +853,7 @@ module.exports = {
 
       if (node.type === "Identifier") {
         if (node.name === "undefined") {
-          return allowReturnUndefined;
+          return true;
         }
         return true;
       }
@@ -833,23 +862,20 @@ module.exports = {
         return true;
       }
 
-      if (node.type === "Literal" && node.value === null && allowReturnNull) {
+      // Always allow returning null, booleans, and numbers (primitives except string)
+      if (node.type === "Literal" && node.value === null) {
         return true;
       }
 
-      if (
-        node.type === "Literal" &&
-        typeof node.value === "boolean" &&
-        allowReturnBooleans
-      ) {
+      if (node.type === "Literal" && typeof node.value === "boolean") {
         return true;
       }
 
-      if (
-        node.type === "Literal" &&
-        node.value === "" &&
-        allowReturnEmptyString
-      ) {
+      if (node.type === "Literal" && typeof node.value === "number") {
+        return true;
+      }
+
+      if (node.type === "Literal" && node.value === "" && allowReturnEmptyString) {
         return true;
       }
 
@@ -872,10 +898,35 @@ module.exports = {
 
     // ==================== TYPESCRIPT ERRORS LOGIC ====================
 
+    /**
+     * Walk the TypeScript diagnostic message chain and return true if any
+     * node mentions `null` or `undefined` (indicating a nullability error).
+     */
+    function diagnosticChainHasNullUndefined(msgText) {
+      if (typeof msgText === "string") {
+        return /\b(null|undefined)\b/.test(msgText);
+      }
+      if (!msgText) return false;
+      if (/\b(null|undefined)\b/.test(msgText.messageText)) return true;
+      if (msgText.next) {
+        for (const n of msgText.next) {
+          if (diagnosticChainHasNullUndefined(n)) return true;
+        }
+      }
+      return false;
+    }
+
+    function isNullUndefinedDiagnostic(diagnostic) {
+      // Codes that are exclusively about null/undefined access
+      const nullSpecificCodes = new Set([2532, 2533, 18047, 18048]);
+      if (nullSpecificCodes.has(diagnostic.code)) return true;
+      return diagnosticChainHasNullUndefined(diagnostic.messageText);
+    }
+
     function checkTypescriptDiagnostics() {
       if (!checkTypescriptErrors || !program) return;
 
-      const filename = context.filename || context.getFilename();
+      const filename = context.filename ?? context.getFilename?.();
       const sourceFile = program.getSourceFile(filename);
       if (!sourceFile) return;
 
@@ -889,11 +940,6 @@ module.exports = {
       for (const diagnostic of allDiagnostics) {
         if (diagnostic.file !== sourceFile) continue;
 
-        const message =
-          typeof diagnostic.messageText === "string"
-            ? diagnostic.messageText
-            : diagnostic.messageText.messageText;
-
         const start = diagnostic.start ?? 0;
         const length = diagnostic.length ?? 1;
 
@@ -901,17 +947,27 @@ module.exports = {
         const startLoc = sourceFile.getLineAndCharacterOfPosition(start);
         const endLoc = sourceFile.getLineAndCharacterOfPosition(start + length);
 
-        context.report({
-          loc: {
-            start: { line: startLoc.line + 1, column: startLoc.character },
-            end: { line: endLoc.line + 1, column: endLoc.character },
-          },
-          messageId: "typescriptError",
-          data: {
-            code: diagnostic.code,
-            message: message,
-          },
-        });
+        if (isNullUndefinedDiagnostic(diagnostic)) {
+          context.report({
+            loc: {
+              start: { line: startLoc.line + 1, column: startLoc.character },
+              end: { line: endLoc.line + 1, column: endLoc.character },
+            },
+            messageId: "typescriptNullableError",
+            data: { code: diagnostic.code },
+          });
+        } else {
+          const message =
+            typeof diagnostic.messageText === "string" ? diagnostic.messageText : diagnostic.messageText.messageText;
+          context.report({
+            loc: {
+              start: { line: startLoc.line + 1, column: startLoc.character },
+              end: { line: endLoc.line + 1, column: endLoc.character },
+            },
+            messageId: "typescriptError",
+            data: { code: diagnostic.code, message },
+          });
+        }
       }
     }
 
@@ -924,12 +980,7 @@ module.exports = {
     function normalizeReturnTypeString(typeString) {
       if (!typeString) return null;
       // Ignore any/unknown/never — they unify with anything
-      if (
-        typeString === "any" ||
-        typeString === "unknown" ||
-        typeString === "never"
-      )
-        return null;
+      if (typeString === "any" || typeString === "unknown" || typeString === "never") return null;
       return typeString;
     }
 
@@ -1022,6 +1073,222 @@ module.exports = {
       }
     }
 
+    // ==================== EXPLICIT NULLABILITY LOGIC ====================
+
+    // TypeScript utility types that propagate/transform nullability explicitly.
+    // If a type is built from one of these, the user has already made a
+    // conscious nullability decision, so we don't require | null | undefined.
+    const NULLABILITY_AWARE_UTILITIES = new Set(["NonNullable", "NoInfer"]);
+
+    /**
+     * Check if a name refers to any type parameter in an enclosing generic declaration.
+     * Generic type parameters (e.g. T in function foo<T>) are exempt from nullability
+     * checks because they are placeholders, not concrete types.
+     */
+    function isTypeParameter(name, node) {
+      let current = node.parent;
+      while (current) {
+        const typeParams = current.typeParameters && current.typeParameters.params;
+        if (typeParams) {
+          for (const param of typeParams) {
+            if (
+              param.type === "TSTypeParameter" &&
+              param.name &&
+              ((typeof param.name === "string" && param.name === name) ||
+                (param.name.type === "Identifier" && param.name.name === name))
+            ) {
+              return true;
+            }
+          }
+        }
+        current = current.parent;
+      }
+      return false;
+    }
+
+    /**
+     * Check if a type parameter name (e.g. "T") has a nullability-aware constraint
+     * (e.g. `T extends NonNullable<unknown>`) in an enclosing generic declaration.
+     */
+    function isConstrainedTypeParameter(name, node) {
+      let current = node.parent;
+      while (current) {
+        // Look for type parameters on type aliases, interfaces, functions, classes
+        const typeParams = current.typeParameters && current.typeParameters.params;
+        if (typeParams) {
+          for (const param of typeParams) {
+            if (
+              param.type === "TSTypeParameter" &&
+              param.name &&
+              ((typeof param.name === "string" && param.name === name) ||
+                (param.name.type === "Identifier" && param.name.name === name))
+            ) {
+              // Found the type parameter — check its constraint
+              if (param.constraint) {
+                return typeNodeHasExplicitNullability(param.constraint);
+              }
+              // No constraint — not explicitly nullable
+              return false;
+            }
+          }
+        }
+        current = current.parent;
+      }
+      return false;
+    }
+
+    /**
+     * Check whether a TSTypeAnnotation node has explicit nullability.
+     * Returns true (= OK, no error) if:
+     *   - The type includes `| null | undefined` (both present in a union)
+     *   - The type is wrapped in NonNullable<>
+     *   - The type is a utility type that inherits nullability (Partial, ReturnType, etc.)
+     *   - The type uses `typeof`
+     *   - The type is inside a type alias declaration (checked at the alias level instead)
+     */
+    function typeNodeHasExplicitNullability(typeNode) {
+      if (!typeNode) return true;
+
+      switch (typeNode.type) {
+        case "TSUnionType": {
+          // Check if union contains both null and undefined
+          let hasNull = false;
+          let hasUndefined = false;
+          for (const member of typeNode.types) {
+            if (member.type === "TSNullKeyword") hasNull = true;
+            if (
+              member.type === "TSUndefinedKeyword" ||
+              (member.type === "TSTypeReference" &&
+                member.typeName &&
+                member.typeName.type === "Identifier" &&
+                member.typeName.name === "undefined")
+            ) {
+              hasUndefined = true;
+            }
+          }
+          return hasNull && hasUndefined;
+        }
+
+        case "TSTypeReference": {
+          const typeName = typeNode.typeName;
+          if (typeName && typeName.type === "Identifier") {
+            // NonNullable<T>, Partial<T>, ReturnType<F>, etc.
+            if (NULLABILITY_AWARE_UTILITIES.has(typeName.name)) {
+              return true;
+            }
+            // Generic type parameters (e.g. T in function foo<T>) are exempt
+            if (isTypeParameter(typeName.name, typeNode)) {
+              return true;
+            }
+            // Check if this is a generic type parameter with a nullability-aware constraint
+            if (isConstrainedTypeParameter(typeName.name, typeNode)) {
+              return true;
+            }
+          }
+          // Qualified names like SomeModule.SomeType — not a utility, needs check
+          return false;
+        }
+
+        case "TSTypeQuery":
+          // typeof X — inherits nullability from the referenced value
+          return true;
+
+        case "TSIndexedAccessType":
+          // T[K] — derived type, inherits from source
+          return true;
+
+        case "TSMappedType":
+          // { [K in ...]: ... } — structural type transformation
+          return true;
+
+        case "TSConditionalType":
+          // T extends U ? X : Y — conditional logic, user is making explicit decisions
+          return true;
+
+        case "TSIntersectionType":
+          // A & B — check if any member has explicit nullability
+          return typeNode.types.some((t) => typeNodeHasExplicitNullability(t));
+
+        // Primitives and simple keywords — need explicit nullability
+        case "TSStringKeyword":
+        case "TSNumberKeyword":
+        case "TSBooleanKeyword":
+        case "TSBigIntKeyword":
+        case "TSSymbolKeyword":
+        case "TSObjectKeyword":
+        case "TSTypeLiteral":
+        case "TSTupleType":
+        case "TSArrayType":
+        case "TSFunctionType":
+        case "TSConstructorType":
+        case "TSTemplateLiteralType":
+        case "TSLiteralType":
+          return false;
+
+        // void, undefined, null, never, unknown, any — these are inherently about nullability or special
+        case "TSVoidKeyword":
+        case "TSUndefinedKeyword":
+        case "TSNullKeyword":
+        case "TSNeverKeyword":
+        case "TSUnknownKeyword":
+        case "TSAnyKeyword":
+          return true;
+
+        // Parenthesized — check inner
+        case "TSParenthesizedType":
+          return typeNodeHasExplicitNullability(typeNode.typeAnnotation);
+
+        default:
+          return true;
+      }
+    }
+
+    /**
+     * Get the source text of a type annotation node for the error message.
+     */
+    function getTypeText(typeNode) {
+      try {
+        return sourceCode.getText(typeNode);
+      } catch {
+        return "...";
+      }
+    }
+
+    /**
+     * Check a TSTypeAnnotation node for explicit nullability.
+     * This is the main entry point called from visitors.
+     */
+    function checkExplicitNullabilityOnAnnotation(node) {
+      if (!checkExplicitNullability) return;
+
+      // node is a TSTypeAnnotation — the actual type is in node.typeAnnotation
+      const typeNode = node.typeAnnotation;
+      if (!typeNode) return;
+
+      if (!typeNodeHasExplicitNullability(typeNode)) {
+        const typeText = getTypeText(typeNode);
+        context.report({
+          node: typeNode,
+          messageId: "missingExplicitNullability",
+          data: { type: typeText },
+          suggest: [
+            {
+              messageId: "suggestAddNullUndefined",
+              fix(fixer) {
+                return fixer.replaceText(typeNode, `${typeText} | null | undefined`);
+              },
+            },
+            {
+              messageId: "suggestWrapNonNullable",
+              fix(fixer) {
+                return fixer.replaceText(typeNode, `NonNullable<${typeText}>`);
+              },
+            },
+          ],
+        });
+      }
+    }
+
     // ==================== RETURN HANDLERS ====================
 
     return {
@@ -1049,9 +1316,7 @@ module.exports = {
         }
         // Skip constructors - they don't have explicit return types
         const isConstructor =
-          node.parent &&
-          node.parent.type === "MethodDefinition" &&
-          node.parent.kind === "constructor";
+          node.parent && node.parent.type === "MethodDefinition" && node.parent.kind === "constructor";
         if (!isConstructor) {
           checkFunctionReturnType(node, false);
         }
@@ -1098,6 +1363,38 @@ module.exports = {
 
       // Return value checks
       ReturnStatement: checkReturnStatement,
+
+      // Explicit nullability checks
+      // Check type annotations on variables, params, properties, return types
+      TSTypeAnnotation: checkExplicitNullabilityOnAnnotation,
+      // Check `as X` type assertions — TSAsExpression has the type directly in node.typeAnnotation (not wrapped in TSTypeAnnotation)
+      TSAsExpression(node) {
+        if (!checkExplicitNullability) return;
+        const typeNode = node.typeAnnotation;
+        if (!typeNode) return;
+        if (!typeNodeHasExplicitNullability(typeNode)) {
+          const typeText = getTypeText(typeNode);
+          context.report({
+            node: typeNode,
+            messageId: "missingExplicitNullability",
+            data: { type: typeText },
+            suggest: [
+              {
+                messageId: "suggestAddNullUndefined",
+                fix(fixer) {
+                  return fixer.replaceText(typeNode, `${typeText} | null | undefined`);
+                },
+              },
+              {
+                messageId: "suggestWrapNonNullable",
+                fix(fixer) {
+                  return fixer.replaceText(typeNode, `NonNullable<${typeText}>`);
+                },
+              },
+            ],
+          });
+        }
+      },
     };
   },
 };

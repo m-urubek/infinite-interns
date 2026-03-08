@@ -1,121 +1,118 @@
-import type {
-  FileInfo,
-  FileData,
-  GrepMatch,
-  WriteResult,
-  EditResult,
-} from "deepagents";
-import { FilesystemBackend } from "deepagents";
+import type { FileInfo, FileData, GrepMatch, WriteResult, EditResult } from "deepagents";
+import * as Deepagents from "deepagents";
 
 type MaybePromise<T> = T | Promise<T>;
 
 type GrepResult = Array<GrepMatch> | string;
 
 type BackendProtocol = {
-  lsInfo(path: string): MaybePromise<Array<FileInfo>>;
-  read(filePath: string, offset?: number, limit?: number): MaybePromise<string>;
-  readRaw(filePath: string): MaybePromise<FileData>;
+  lsInfo(path: NonNullable<string>): NonNullable<MaybePromise<Array<FileInfo>>>;
+  read(
+    filePath: NonNullable<string>,
+    offset?: number | null | undefined,
+    limit?: number | null | undefined
+  ): NonNullable<MaybePromise<string>>;
+  readRaw(filePath: NonNullable<string>): NonNullable<MaybePromise<FileData>>;
   grepRaw(
-    pattern: string,
-    path?: string | null,
-    glob?: string | null,
-  ): MaybePromise<GrepResult>;
-  globInfo(pattern: string, path?: string): MaybePromise<Array<FileInfo>>;
-  write(filePath: string, content: string): MaybePromise<WriteResult>;
+    pattern: NonNullable<string>,
+    path?: string | null | undefined,
+    glob?: string | null | undefined
+  ): NonNullable<MaybePromise<GrepResult>>;
+  globInfo(pattern: NonNullable<string>, path?: string | null | undefined): NonNullable<MaybePromise<Array<FileInfo>>>;
+  write(filePath: NonNullable<string>, content: NonNullable<string>): NonNullable<MaybePromise<WriteResult>>;
   edit(
-    filePath: string,
-    oldString: string,
-    newString: string,
-    replaceAll?: boolean,
-  ): MaybePromise<EditResult>;
+    filePath: NonNullable<string>,
+    oldString: NonNullable<string>,
+    newString: NonNullable<string>,
+    replaceAll?: boolean | null | undefined
+  ): NonNullable<MaybePromise<EditResult>>;
 };
 
 type ReadOnlyBackendOptions = {
-  rootDir: string;
-  virtualMode?: boolean;
+  rootDir: NonNullable<string>;
+  virtualMode?: boolean | null | undefined;
 };
 
 export class ReadOnlyBackend implements BackendProtocol {
-  private inner: FilesystemBackend;
+  private inner: NonNullable<Deepagents.FilesystemBackend>;
 
-  constructor(options: ReadOnlyBackendOptions) {
-    this.inner = new FilesystemBackend({
+  constructor(options: NonNullable<ReadOnlyBackendOptions>) {
+    this.inner = new Deepagents.FilesystemBackend({
       rootDir: options.rootDir,
       virtualMode: options.virtualMode ?? true,
     });
   }
 
-  lsInfo(path: string): MaybePromise<Array<FileInfo>> {
-    const result: MaybePromise<Array<FileInfo>> = this.inner.lsInfo(path);
+  lsInfo(path: NonNullable<string>): NonNullable<MaybePromise<Array<FileInfo>>> {
+    const result: NonNullable<MaybePromise<Array<FileInfo>>> = this.inner.lsInfo(path) as NonNullable<
+      MaybePromise<Array<FileInfo>>
+    >;
     return result;
   }
 
   read(
-    filePath: string,
-    offset?: number,
-    limit?: number,
-  ): MaybePromise<string> {
-    const result: MaybePromise<string> = this.inner.read(
+    filePath: NonNullable<string>,
+    offset?: number | null | undefined,
+    limit?: number | null | undefined
+  ): NonNullable<MaybePromise<string>> {
+    const result: NonNullable<MaybePromise<string>> = this.inner.read(
       filePath,
-      offset,
-      limit,
-    );
+      offset ?? undefined,
+      limit ?? undefined
+    ) as NonNullable<MaybePromise<string>>;
     return result;
   }
 
-  readRaw(filePath: string): MaybePromise<FileData> {
-    const result: MaybePromise<FileData> = this.inner.readRaw(filePath);
+  readRaw(filePath: NonNullable<string>): NonNullable<MaybePromise<FileData>> {
+    const result: NonNullable<MaybePromise<FileData>> = this.inner.readRaw(filePath) as NonNullable<
+      MaybePromise<FileData>
+    >;
     return result;
   }
 
   grepRaw(
-    pattern: string,
-    path?: string | null,
-    glob?: string | null,
-  ): MaybePromise<GrepResult> {
-    const result: MaybePromise<GrepResult> = this.inner.grepRaw(
+    pattern: NonNullable<string>,
+    path?: string | null | undefined,
+    glob?: string | null | undefined
+  ): NonNullable<MaybePromise<GrepResult>> {
+    const result: NonNullable<MaybePromise<GrepResult>> = this.inner.grepRaw(
       pattern,
       path ?? undefined,
-      glob ?? undefined,
-    );
+      glob ?? undefined
+    ) as NonNullable<MaybePromise<GrepResult>>;
     return result;
   }
 
-  globInfo(pattern: string, path?: string): MaybePromise<Array<FileInfo>> {
-    const result: MaybePromise<Array<FileInfo>> = this.inner.globInfo(
+  globInfo(pattern: NonNullable<string>, path?: string | null | undefined): NonNullable<MaybePromise<Array<FileInfo>>> {
+    const result: NonNullable<MaybePromise<Array<FileInfo>>> = this.inner.globInfo(
       pattern,
-      path,
-    );
+      path ?? undefined
+    ) as NonNullable<MaybePromise<Array<FileInfo>>>;
     return result;
   }
 
-  write(_filePath: string, _content: string): WriteResult {
-    const errorResult: WriteResult = {
+  write(_filePath: NonNullable<string>, _content: NonNullable<string>): NonNullable<MaybePromise<WriteResult>> {
+    const errorResult: NonNullable<MaybePromise<WriteResult>> = {
       error: "Write operations are not permitted for this read-only agent",
-      path: "" as string | undefined,
+      path: "" as NonNullable<string> | null | undefined,
       filesUpdate: null,
-    } as WriteResult;
+    } as NonNullable<MaybePromise<WriteResult>>;
     return errorResult;
   }
 
   edit(
-    _filePath: string,
-    _oldString: string,
-    _newString: string,
-    _replaceAll?: boolean,
-  ): EditResult {
-    const errorResult: EditResult = {
+    _filePath: NonNullable<string>,
+    _oldString: NonNullable<string>,
+    _newString: NonNullable<string>,
+    _replaceAll?: boolean | null | undefined
+  ): NonNullable<MaybePromise<EditResult>> {
+    const errorResult: NonNullable<MaybePromise<EditResult>> = {
       error: "Edit operations are not permitted for this read-only agent",
-      path: "" as string | undefined,
+      path: "" as NonNullable<string> | null | undefined,
       filesUpdate: null,
-    } as EditResult;
+    } as NonNullable<MaybePromise<EditResult>>;
     return errorResult;
   }
 }
 
-export type {
-  BackendProtocol,
-  MaybePromise,
-  GrepResult,
-  ReadOnlyBackendOptions,
-};
+export type { BackendProtocol, MaybePromise, GrepResult, ReadOnlyBackendOptions };

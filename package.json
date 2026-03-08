@@ -14,7 +14,7 @@
     "test:debug": "vitest --inspect-brk --single-thread",
     "check-exports": "node scripts/check-exports.js",
     "fix": "scripts/fix.sh",
-    "format": "prettier --write ."
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "dependencies": {
     "@langchain/core": "^1.1.29",
@@ -33,6 +33,7 @@
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
     "eslint-formatter-compact": "^9.0.1",
+    "namespace-import-plugin": "file:ts-plugins/namespace-import-plugin",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"
   }

@@ -62,6 +62,13 @@
         "reveal": "always",
         "panel": "shared"
       }
+    },
+    {
+      "type": "npm",
+      "script": "lint",
+      "problemMatcher": ["$eslint-compact"],
+      "label": "npm: lint",
+      "detail": "eslint \"src/**/*.ts\" --fix --cache --format compact && echo 'Finished, no lint or ts errors found'"
     }
   ]
 }
