@@ -33,24 +33,21 @@ export function answerClarificationsNode(
     }
   );
 
-  // Read previous clarifications from upstream output (prdGeneratorState.output)
-  const existingClarifications: NonNullable<Array<ClarifyingQuestion>> =
-    state.prdGeneratorState.output.clarifications ?? [];
+  // Read previous clarifications from upstream output (prdAnalyzerState.output — direct upstream, passes them through)
+  const existingClarifications: NonNullable<Array<ClarifyingQuestion>> = analyzerOutput.clarifications ?? [];
   const allClarifications: NonNullable<Array<ClarifyingQuestion>> = [...existingClarifications, ...newClarifications];
 
   // Write own internal
   state.answerClarificationsState.internal.clarificationRound =
     state.answerClarificationsState.internal.clarificationRound + 1;
 
-  // Write downstream: feed clarifications into prdGeneratorState for the next PRD regeneration
-  state.prdGeneratorState.input = {
-    ...state.prdGeneratorState.input,
+  // Write own output (prdGeneratorGraph reads this on the next run)
+  state.answerClarificationsState.output = {
     clarifications: allClarifications,
   };
 
   const update: NonNullable<Partial<MainPipelineState>> = {
     answerClarificationsState: state.answerClarificationsState,
-    prdGeneratorState: state.prdGeneratorState,
   };
   return update;
 }

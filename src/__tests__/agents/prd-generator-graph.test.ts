@@ -72,9 +72,9 @@ describe("prdGeneratorGraph", () => {
 
     const state = MockStateFactory.createMockState({
       assignment: "Build a todo app",
-      prdGeneratorState: {
-        input: { clarifications: [{ question: "What framework?", answer: "React" }] },
-        output: { prd: "", clarifications: null },
+      answerClarificationsState: {
+        output: { clarifications: [{ question: "What framework?", answer: "React" }] },
+        internal: { clarificationRound: 1 },
       },
     });
 

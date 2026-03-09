@@ -51,7 +51,6 @@ describe("prdAnalyzerGraph", () => {
     const state = MockStateFactory.createMockState({
       assignment: "Build an app",
       prdGeneratorState: {
-        input: { clarifications: null },
         output: { prd: "A PRD about building an app", clarifications: null },
       },
     });
@@ -80,7 +79,6 @@ describe("prdAnalyzerGraph", () => {
     const state = MockStateFactory.createMockState({
       assignment: "Build an app",
       prdGeneratorState: {
-        input: { clarifications: null },
         output: { prd: "A comprehensive PRD", clarifications: null },
       },
     });
@@ -110,7 +108,6 @@ describe("prdAnalyzerGraph", () => {
     const state = MockStateFactory.createMockState({
       assignment: "Build an app",
       prdGeneratorState: {
-        input: { clarifications: existingClarifications },
         output: { prd: "PRD with React details", clarifications: existingClarifications },
       },
     });

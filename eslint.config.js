@@ -8,6 +8,7 @@ const enforceExplicitTypes = require("./eslint-rules/enforce-explicit-types.cjs"
 const noUnusedExports = require("./eslint-rules/no-unused-exports.cjs");
 const enforceNamespaceImports = require("./eslint-rules/enforce-namespace-imports.cjs");
 const enforceBrackets = require("./eslint-rules/enforce-brackets.cjs");
+const enforceNodeStateAccess = require("./eslint-rules/enforce-node-state-access.cjs");
 
 const localPlugin = {
   rules: {
@@ -15,6 +16,7 @@ const localPlugin = {
     "no-unused-exports": noUnusedExports,
     "enforce-namespace-imports": enforceNamespaceImports,
     "enforce-brackets": enforceBrackets,
+    "enforce-node-state-access": enforceNodeStateAccess,
   },
 };
 
@@ -146,6 +148,10 @@ export default [
 
       // Custom rule: enforce brackets on control structures (auto-fixes silently)
       "local/enforce-brackets": "error",
+
+      // Custom rule: enforce that pipeline nodes only write to their own state
+      // State properties are auto-discovered from main-pipeline-annotations.ts
+      "local/enforce-node-state-access": "error",
     },
   },
   {
@@ -164,6 +170,7 @@ export default [
     },
     rules: {
       "@typescript-eslint/no-unnecessary-condition": "off",
+      "local/enforce-node-state-access": "off",
       "local/enforce-explicit-types": [
         "error",
         {

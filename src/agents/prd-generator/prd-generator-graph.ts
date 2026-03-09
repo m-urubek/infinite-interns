@@ -72,7 +72,7 @@ function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainP
   ${state.assignment}
 </assignment>
 <clarifications>
-${SharedUtility.isNotNullOrEmpty(state.prdGeneratorState.input.clarifications) ? JSON.stringify(state.prdGeneratorState.input.clarifications, null, 2) : "No clarifications provided, create the PRD based on the assignment only."}
+${SharedUtility.isNotNullOrEmpty(state.answerClarificationsState.output?.clarifications) ? JSON.stringify(state.answerClarificationsState.output.clarifications, null, 2) : "No clarifications provided, create the PRD based on the assignment only."}
 </clarifications>
 `;
   state.invokeAgentState.input = {
@@ -94,7 +94,7 @@ function process(state: NonNullable<MainPipelineState>): NonNullable<Partial<Mai
 
   state.prdGeneratorState.output = {
     prd: prd,
-    clarifications: state.prdGeneratorState.input.clarifications,
+    clarifications: state.answerClarificationsState.output?.clarifications ?? null,
   };
 
   const update: NonNullable<Partial<MainPipelineState>> = {

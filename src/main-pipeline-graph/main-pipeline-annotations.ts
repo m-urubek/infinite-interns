@@ -37,7 +37,6 @@ export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({
   prdGeneratorState: Langgraph.Annotation<PrdGeneratorState>({
     reducer: SharedUtility.lastValue,
     default: (): NonNullable<PrdGeneratorState> => ({
-      input: { clarifications: null },
       output: { prd: "", clarifications: null },
     }),
   }),
@@ -52,6 +51,7 @@ export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({
   answerClarificationsState: Langgraph.Annotation<AnswerClarificationsState>({
     reducer: SharedUtility.lastValue,
     default: (): NonNullable<AnswerClarificationsState> => ({
+      output: null,
       internal: { clarificationRound: 0 },
     }),
   }),

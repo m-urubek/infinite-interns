@@ -21,7 +21,7 @@ describe("answerClarificationsNode", () => {
     interruptReturnValue = [];
   });
 
-  it("pairs questions with human answers and writes to prdGeneratorState.input", () => {
+  it("pairs questions with human answers and writes to answerClarificationsState.output", () => {
     interruptReturnValue = ["React", "PostgreSQL"];
 
     const state = MockStateFactory.createMockState({
@@ -39,7 +39,7 @@ describe("answerClarificationsNode", () => {
 
     const result = AnswerClarificationsNode.answerClarificationsNode(state);
 
-    const clarifications = result.prdGeneratorState?.input?.clarifications;
+    const clarifications = result.answerClarificationsState?.output?.clarifications;
     expect(clarifications).toHaveLength(2);
     expect(clarifications?.[0]?.question).toBe("What framework?");
     expect(clarifications?.[0]?.answer).toBe("React");
@@ -47,7 +47,7 @@ describe("answerClarificationsNode", () => {
     expect(clarifications?.[1]?.answer).toBe("PostgreSQL");
   });
 
-  it("merges with existing clarifications", () => {
+  it("merges with existing clarifications from prdAnalyzerState.output", () => {
     interruptReturnValue = ["New answer"];
 
     const state = MockStateFactory.createMockState({
@@ -58,13 +58,6 @@ describe("answerClarificationsNode", () => {
           confidence: 4,
           reasoning: "Needs more info",
           prd: "Test PRD",
-          clarifications: null,
-        },
-      },
-      prdGeneratorState: {
-        input: { clarifications: null },
-        output: {
-          prd: "Test PRD",
           clarifications: [{ question: "Old Q", answer: "Old A" }],
         },
       },
@@ -72,7 +65,7 @@ describe("answerClarificationsNode", () => {
 
     const result = AnswerClarificationsNode.answerClarificationsNode(state);
 
-    const clarifications = result.prdGeneratorState?.input?.clarifications;
+    const clarifications = result.answerClarificationsState?.output?.clarifications;
     expect(clarifications).toHaveLength(2);
     expect(clarifications?.[0]?.question).toBe("Old Q");
     expect(clarifications?.[0]?.answer).toBe("Old A");
@@ -130,7 +123,7 @@ describe("answerClarificationsNode", () => {
 
     const result = AnswerClarificationsNode.answerClarificationsNode(state);
 
-    const clarifications = result.prdGeneratorState?.input?.clarifications;
+    const clarifications = result.answerClarificationsState?.output?.clarifications;
     expect(clarifications).toHaveLength(3);
     expect(clarifications?.[0]?.answer).toBe("Only one");
     expect(clarifications?.[1]?.answer).toBeNull();

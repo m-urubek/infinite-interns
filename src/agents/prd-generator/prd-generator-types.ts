@@ -1,12 +1,7 @@
 import { type ClarifyingQuestions } from "../../main-pipeline-graph/main-pipeline-types";
 
 export type PrdGeneratorState = {
-  input: NonNullable<PrdGeneratorInput>;
   output: NonNullable<PrdGeneratorOutput>;
-};
-
-export type PrdGeneratorInput = {
-  clarifications: ClarifyingQuestions | null | undefined;
 };
 
 export type PrdGeneratorOutput = {

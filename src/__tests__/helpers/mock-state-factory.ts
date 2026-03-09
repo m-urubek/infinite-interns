@@ -24,13 +24,13 @@ function getDefaultState(): NonNullable<MainPipelineState> {
     },
 
     prdGeneratorState: {
-      input: { clarifications: null },
       output: { prd: "", clarifications: null },
     },
 
     prdAnalyzerState: { output: null },
 
     answerClarificationsState: {
+      output: null,
       internal: { clarificationRound: 0 },
     },
 

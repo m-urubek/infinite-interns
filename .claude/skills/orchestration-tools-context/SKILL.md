@@ -91,6 +91,7 @@ eslint-rules/                         # Custom ESLint rules
 ├── enforce-explicit-types.cjs        # Strict typing enforcement
 ├── enforce-namespace-imports.cjs     # import * as Name style
 ├── enforce-brackets.cjs              # Control structure brackets
+├── enforce-node-state-access.cjs     # Pipeline node state ownership enforcement
 └── no-unused-exports.cjs             # Unused export detection (currently off)
 
 ts-plugins/                           # TypeScript compiler plugins
@@ -184,13 +185,13 @@ Each `[Something]State` type can ONLY contain these sub-fields:
 
 - `output` — Data produced by this node/subgraph for downstream consumers
 - `internal` — Private bookkeeping (counters, flags) not meant for other nodes
-- `input` — **Discouraged.** Only use when absolutely necessary (see below)
 
 **No other fields are allowed directly on the state type.** For example, `clarificationRound` must go inside `internal`, not directly on the state.
 
 ```typescript
 // ✅ GOOD
 type AnswerClarificationsState = {
+  output: AnswerClarificationsOutput | null | undefined;
   internal: NonNullable<AnswerClarificationsInternal>;
 };
 
@@ -200,24 +201,23 @@ type AnswerClarificationsState = {
 };
 ```
 
-### Prefer `output` Over `input` for Data Handoff
+### Always Use `output` for Data Handoff
 
-**Prefer reading upstream `output` rather than having dedicated `input` fields.** Instead of a node writing to the next node's `input`, the next node should read from the previous node's `output` directly.
+**All data handoff between nodes uses `output` fields.** A node always writes to its own `output`, and downstream nodes read from the upstream `output` directly.
 
 ```typescript
-// ✅ PREFERRED - read from upstream output directly
+// ✅ CORRECT - write to own output, downstream reads it directly
 function answerClarificationsNode(state: MainPipelineState) {
   const questions = state.prdAnalyzerState.output.questions;
-  const previousClarifications = state.prdGeneratorState.output.clarifications;
+  const previousClarifications = state.prdAnalyzerState.output.clarifications;
+  state.answerClarificationsState.output = { clarifications: allClarifications };
 }
 
-// ❌ DISCOURAGED - dedicated input set by previous node
+// ❌ WRONG - writing to another node's input
 function answerClarificationsNode(state: MainPipelineState) {
-  const questions = state.answerClarificationsState.input.questions;
+  state.prdGeneratorState.input.clarifications = allClarifications; // NEVER do this
 }
 ```
-
-**Exception:** `input` is acceptable when a node genuinely needs accumulated/transformed data that doesn't belong in any upstream output (e.g., `prdGeneratorState.input.clarifications` which accumulates across rounds).
 
 ## State Access Rules for Subgraphs and Nodes
 
@@ -227,7 +227,6 @@ Each node or subgraph in the main pipeline can only:
 
 - **Read outputs** of its **direct upstream neighbors** — nodes/subgraphs with a direct edge leading to it. Reading from non-neighbors is forbidden, even if the data exists in state.
 - **Access its own state**: `internal` is read/write, `output` is read/write.
-- **Write downstream inputs** only when `input` is truly needed (see above — prefer output).
 
 In practice this means:
 
@@ -244,17 +243,14 @@ These rules are not enforced by the codebase but are critical for maintaining cl
 // In answerClarifications node:
 // ✅ Read upstream outputs
 const questions = state.prdAnalyzerState.output.questions;
-const clarifications = state.prdGeneratorState.output.clarifications;
+const clarifications = state.prdAnalyzerState.output.clarifications;
 
 // ✅ Write own output and internal
 state.answerClarificationsState.output = { clarifications: allClarifications };
 state.answerClarificationsState.internal.clarificationRound++;
 
-// ✅ Write downstream input (only when input is necessary)
-state.prdGeneratorState.input.clarifications = allClarifications;
-
-// ❌ WRONG: reading own input when you can read upstream output
-state.answerClarificationsState.input.questions;
+// ❌ WRONG: writing to another node's state
+state.prdGeneratorState.input = { clarifications: allClarifications }; // NEVER do this
 
 // ❌ WRONG: creating bridge nodes in main pipeline for data transfer
 ```
@@ -358,7 +354,7 @@ flowchart TD
 - **Backend**: `ReadOnlyBackend` (read-only filesystem access)
 - **Subgraph flow**: setup → invokePrdGenerator → process → `__end__`
 - **Zod Schema**: Validates `precision` (0-100) and `prd` (string)
-- **process node**: Writes `prdGeneratorState.output` with the PRD and clarifications
+- **process node**: Writes `prdGeneratorState.output` with the PRD and clarifications (pass-through from `answerClarificationsState.output`)
 
 ### PRD Analyzer Agent
 
@@ -375,8 +371,8 @@ flowchart TD
 - **Purpose**: Presents analyzer questions to human and collects answers
 - **Location**: `src/nodes/answer-clarifications/answer-clarifications-node.ts`
 - **Mechanism**: `Langgraph.interrupt(questions)` pauses execution; human resumes with `Command({ resume: answers })`
-- **Reads**: `prdAnalyzerState.output` (questions), `prdGeneratorState.output` (previous clarifications)
-- **Writes**: own `internal.clarificationRound`, `prdGeneratorState.input.clarifications` (downstream feed-input)
+- **Reads**: `prdAnalyzerState.output` (questions and previous clarifications, passed through by analyzer)
+- **Writes**: own `output.clarifications` (accumulated clarifications), own `internal.clarificationRound`
 - **Uses one question type** throughout the cycle: `ClarifyingQuestion = { question, answer }`. The analyzer outputs plain `string[]` questions, and `answerClarificationsNode` pairs them with human answers into `ClarifyingQuestion[]`.
 
 ### Planner Agent
@@ -469,8 +465,7 @@ type InvokeAgentState = {
 
 ```typescript
 type PrdGeneratorState = {
-  input: PrdGeneratorInput; // { clarifications }
-  output: PrdGeneratorOutput; // { prd, clarifications }
+  output: PrdGeneratorOutput; // { prd, clarifications (pass-through from answerClarificationsState.output) }
 };
 ```
 
@@ -497,7 +492,12 @@ type PrdAnalyzerState = {
 ### AnswerClarificationsState
 
 ```typescript
+type AnswerClarificationsOutput = {
+  clarifications: ClarifyingQuestions; // accumulated across all rounds
+};
+
 type AnswerClarificationsState = {
+  output: AnswerClarificationsOutput | null | undefined;
   internal: AnswerClarificationsInternal; // { clarificationRound }
 };
 ```
@@ -635,7 +635,7 @@ export type MyAgentState = {
 - No `input` field — read upstream outputs directly (state access rules)
 - `output` is nullable (initially null before agent runs)
 - Internal bookkeeping (counters, flags) goes in `internal`, never directly on the state
-- Only `output`, `internal`, and (rarely) `input` are allowed as fields on a `[Something]State`
+- Only `output` and `internal` are allowed as fields on a `[Something]State` (exception: `InvokeAgentState` also has `input` since it is a reusable scratchpad)
 
 ### Step 2: Create Zod Schema for LLM Output
 
