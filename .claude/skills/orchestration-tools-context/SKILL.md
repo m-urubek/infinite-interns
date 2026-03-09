@@ -965,19 +965,24 @@ import { type SomeType } from "./types.js";
 
 All control structures (if, else, for, while, etc.) must use brackets, even for single-line bodies.
 
-## New Global Input: buildCommand
+## Global Pipeline Input Fields
 
-The main pipeline input annotation includes an optional `buildCommand` field:
+The main pipeline input annotation includes the following required and optional fields:
 
 ```typescript
 export const mainPipelineInputAnnotation = Langgraph.Annotation.Root({
   assignment: Langgraph.Annotation<string>(),
   projectDir: Langgraph.Annotation<string>(),
   buildCommand: Langgraph.Annotation<string | null | undefined>(),
+  finalVerifierEnabled: Langgraph.Annotation<boolean>(),
 });
 ```
 
+### buildCommand
 If `buildCommand` is provided by the user, the planner uses it directly. If null/undefined, the planner determines the appropriate build command by analyzing the codebase.
+
+### finalVerifierEnabled
+Controls whether the final verifier agent runs after all tasks complete. If `false`, the pipeline skips the final verifier and goes directly to `__end__`. If `true`, the final verifier agent runs holistically to verify the entire implementation. User must set this before launching the pipeline (required boolean field).
 
 ## Unit Testing
 

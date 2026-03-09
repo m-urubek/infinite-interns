@@ -54,7 +54,7 @@ const graphBuilder = new Langgraph.StateGraph({
   .addConditionalEdges("prdAnalyzerGraph", routeAfterAnalyzer, ["answerClarificationsNode", "plannerGraph"])
   .addEdge("answerClarificationsNode", "prdGeneratorGraph")
   .addEdge("plannerGraph", "controllerNode")
-  .addConditionalEdges("controllerNode", routeAfterController, ["implementerGraph", "finalVerifierGraph"])
+  .addConditionalEdges("controllerNode", routeAfterController, ["implementerGraph", "finalVerifierGraph", "__end__"])
   .addEdge("implementerGraph", "builderNode")
   .addConditionalEdges("builderNode", routeAfterBuilder, ["verifierGraph", "controllerNode"])
   .addEdge("verifierGraph", "controllerNode")

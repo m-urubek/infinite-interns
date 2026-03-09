@@ -11,6 +11,7 @@ function getDefaultState(): NonNullable<MainPipelineState> {
     assignment: "Test assignment",
     projectDir: "/tmp/test-project",
     buildCommand: null,
+    finalVerifierEnabled: true,
 
     invokeAgentState: {
       input: { conversationHistory: null, userMessage: "" },

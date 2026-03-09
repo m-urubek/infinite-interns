@@ -15,6 +15,7 @@ export const mainPipelineInputAnnotation = Langgraph.Annotation.Root({
   assignment: Langgraph.Annotation<string>(),
   projectDir: Langgraph.Annotation<string>(),
   buildCommand: Langgraph.Annotation<string | null | undefined>(),
+  finalVerifierEnabled: Langgraph.Annotation<boolean>(),
 });
 
 export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({

@@ -34,13 +34,16 @@ export function routeAfterAnalyzer(state: NonNullable<MainPipelineState>): NonNu
 // Routing: after controller, decide whether to implement or finalize
 // ---------------------------------------------------------------------------
 
-export type PostControllerRoute = "implementerGraph" | "finalVerifierGraph";
+export type PostControllerRoute = "implementerGraph" | "finalVerifierGraph" | "__end__";
 
 export function routeAfterController(state: NonNullable<MainPipelineState>): NonNullable<PostControllerRoute> {
   let resultRoute: NonNullable<PostControllerRoute>;
 
   if (state.controllerState.internal.allTasksDone) {
-    resultRoute = "finalVerifierGraph" as NonNullable<PostControllerRoute>;
+    const finalVerifierEnabled: NonNullable<boolean> = state.finalVerifierEnabled;
+    resultRoute = finalVerifierEnabled
+      ? ("finalVerifierGraph" as NonNullable<PostControllerRoute>)
+      : ("__end__" as NonNullable<PostControllerRoute>);
   } else {
     resultRoute = "implementerGraph" as NonNullable<PostControllerRoute>;
   }
