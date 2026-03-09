@@ -6,7 +6,7 @@ import { type MainPipelineState } from "../../main-pipeline-graph/main-pipeline-
 import { type InvokeAgentOutput } from "../../invoke-agent-graph/invoke-agent-types.js";
 import * as MainPipelineAnnotations from "../../main-pipeline-graph/main-pipeline-annotations.js";
 import { type FinalVerifierOutput } from "./final-verifier-types.js";
-import * as SharedUtility from "../../shared/shared-utility.js";
+import * as Util from "../../shared/util.js";
 import * as Zod from "zod";
 
 export const finalVerifierAgentOutputSchema = Zod.z.object({
@@ -65,9 +65,7 @@ function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainP
       throw new Error("PRD is null or undefined");
     })();
 
-  const clarificationsJson: NonNullable<string> = SharedUtility.isNotNullOrEmpty(
-    state.prdGeneratorState.output.clarifications
-  )
+  const clarificationsJson: NonNullable<string> = Util.isNotNullOrEmpty(state.prdGeneratorState.output.clarifications)
     ? JSON.stringify(state.prdGeneratorState.output.clarifications, null, 2)
     : "No clarifications were needed.";
 

@@ -104,7 +104,15 @@ describe("controllerNode", () => {
       verifierState: { output: { success: false, failureDescription: "still failing" } },
       controllerState: {
         output: null,
-        internal: { currentTaskIndex: 0, builderAttempts: 0, verifierAttempts: 6, allTasksDone: false },
+        internal: {
+          currentTaskIndex: 0,
+          builderAttempts: 0,
+          verifierAttempts: 6,
+          allTasksDone: false,
+          cycleCount: 0,
+          lastBuilderOutputCycle: -1,
+          lastVerifierOutputCycle: -1,
+        },
       },
     });
 
@@ -116,7 +124,15 @@ describe("controllerNode", () => {
       builderState: { output: { success: false, errorOutput: "persistent error" } },
       controllerState: {
         output: null,
-        internal: { currentTaskIndex: 0, builderAttempts: 6, verifierAttempts: 0, allTasksDone: false },
+        internal: {
+          currentTaskIndex: 0,
+          builderAttempts: 6,
+          verifierAttempts: 0,
+          allTasksDone: false,
+          cycleCount: 0,
+          lastBuilderOutputCycle: -1,
+          lastVerifierOutputCycle: -1,
+        },
       },
     });
 
@@ -128,15 +144,21 @@ describe("controllerNode", () => {
       verifierState: { output: { success: true, failureDescription: null } },
       controllerState: {
         output: null,
-        internal: { currentTaskIndex: 1, builderAttempts: 0, verifierAttempts: 0, allTasksDone: false },
+        internal: {
+          currentTaskIndex: 1,
+          builderAttempts: 0,
+          verifierAttempts: 0,
+          allTasksDone: false,
+          cycleCount: 0,
+          lastBuilderOutputCycle: -1,
+          lastVerifierOutputCycle: -1,
+        },
       },
     });
     const result = ControllerNode.controllerNode(state);
     const internal: ControllerInternal | null | undefined = result.controllerState?.internal;
 
     expect(internal?.allTasksDone).toBe(true);
-    expect(result.builderState?.output).toBeNull();
-    expect(result.verifierState?.output).toBeNull();
   });
 
   it("builds correct task summary with numbered list", () => {
@@ -165,11 +187,28 @@ describe("controllerNode", () => {
     );
   });
 
-  it("clears builder and verifier output each iteration", () => {
-    const state: NonNullable<MainPipelineState> = createControllerState();
+  it("does not re-process builder output that was already consumed in a prior cycle", () => {
+    // Simulate: builder output was consumed in cycle 1, now we are on cycle 2
+    const state: NonNullable<MainPipelineState> = createControllerState({
+      builderState: { output: { success: false, errorOutput: "stale error" } },
+      controllerState: {
+        output: null,
+        internal: {
+          currentTaskIndex: 0,
+          builderAttempts: 1,
+          verifierAttempts: 0,
+          allTasksDone: false,
+          cycleCount: 1,
+          lastBuilderOutputCycle: 1,
+          lastVerifierOutputCycle: -1,
+        },
+      },
+    });
     const result = ControllerNode.controllerNode(state);
+    const internal: ControllerInternal | null | undefined = result.controllerState?.internal;
 
-    expect(result.builderState?.output).toBeNull();
-    expect(result.verifierState?.output).toBeNull();
+    // builderAttempts should NOT increment since the output was already consumed
+    expect(internal?.builderAttempts).toBe(1);
+    expect(result.controllerState?.output?.isCorrection).toBe(false);
   });
 });

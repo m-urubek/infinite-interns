@@ -3,7 +3,7 @@ import * as GeminiFlashModel from "../../shared/gemini-flash-model.js";
 import * as ReadOnlyBackend from "../../backends/read-only-backend.js";
 import * as InvokeAgentGraphFactory from "../../invoke-agent-graph/invoke-agent-graph-factory.js";
 import { type MainPipelineState } from "../../main-pipeline-graph/main-pipeline-types.js";
-import * as SharedUtility from "../../shared/shared-utility.js";
+import * as Util from "../../shared/util.js";
 import { type InvokeAgentOutput } from "../../invoke-agent-graph/invoke-agent-types.js";
 import * as MainPipelineAnnotations from "../../main-pipeline-graph/main-pipeline-annotations.js";
 // eslint-disable-next-line local/enforce-namespace-imports
@@ -72,7 +72,7 @@ function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainP
   ${state.assignment}
 </assignment>
 <clarifications>
-${SharedUtility.isNotNullOrEmpty(state.answerClarificationsState.output?.clarifications) ? JSON.stringify(state.answerClarificationsState.output.clarifications, null, 2) : "No clarifications provided, create the PRD based on the assignment only."}
+${Util.isNotNullOrEmpty(state.answerClarificationsState.output?.clarifications) ? JSON.stringify(state.answerClarificationsState.output.clarifications, null, 2) : "No clarifications provided, create the PRD based on the assignment only."}
 </clarifications>
 `;
   state.invokeAgentState.input = {

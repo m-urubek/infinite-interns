@@ -3,7 +3,7 @@ import { type PlannerOutput, type PlannerTask } from "../../agents/planner/plann
 import { type BuilderOutput } from "../builder/builder-types";
 import { type VerifierOutput } from "../../agents/verifier/verifier-types";
 import { type ControllerOutput } from "./controller-types";
-import * as SharedUtility from "../../shared/shared-utility";
+import * as Util from "../../shared/util";
 
 const MAX_BUILDER_ATTEMPTS: NonNullable<number> = 7;
 const MAX_VERIFIER_ATTEMPTS: NonNullable<number> = 7;
@@ -35,14 +35,25 @@ export function controllerNode(state: NonNullable<MainPipelineState>): NonNullab
       throw new Error("PRD is null or undefined");
     })();
 
+  // Increment cycle count so we can detect which outputs are fresh (produced after the last controller run)
+  const cycleCount: NonNullable<number> = state.controllerState.internal.cycleCount + 1;
+  state.controllerState.internal.cycleCount = cycleCount;
+
+  // An output is "fresh" (not yet consumed) if it was written after the last time we consumed it
   const builderOutput: BuilderOutput | null | undefined = state.builderState.output;
   const verifierOutput: VerifierOutput | null | undefined = state.verifierState.output;
+
+  const builderOutputFresh: NonNullable<boolean> =
+    Util.isNotNullOrUndf(builderOutput) && state.controllerState.internal.lastBuilderOutputCycle < cycleCount - 1;
+  const verifierOutputFresh: NonNullable<boolean> =
+    Util.isNotNullOrUndf(verifierOutput) && state.controllerState.internal.lastVerifierOutputCycle < cycleCount - 1;
 
   // -----------------------------------------------------------------------
   // Step 1: Process the outcome from the previous cycle iteration
   // -----------------------------------------------------------------------
 
-  if (SharedUtility.isNotNullOrUndf(verifierOutput)) {
+  if (verifierOutputFresh && Util.isNotNullOrUndf(verifierOutput)) {
+    state.controllerState.internal.lastVerifierOutputCycle = cycleCount;
     if (verifierOutput.success) {
       state.controllerState.internal.currentTaskIndex++;
       state.controllerState.internal.builderAttempts = 0;
@@ -55,7 +66,8 @@ export function controllerNode(state: NonNullable<MainPipelineState>): NonNullab
         );
       }
     }
-  } else if (SharedUtility.isNotNullOrUndf(builderOutput) && !builderOutput.success) {
+  } else if (builderOutputFresh && Util.isNotNullOrUndf(builderOutput) && !builderOutput.success) {
+    state.controllerState.internal.lastBuilderOutputCycle = cycleCount;
     state.controllerState.internal.builderAttempts++;
     if (state.controllerState.internal.builderAttempts >= MAX_BUILDER_ATTEMPTS) {
       throw new Error(
@@ -73,13 +85,8 @@ export function controllerNode(state: NonNullable<MainPipelineState>): NonNullab
   if (currentTaskIndex >= tasks.length) {
     state.controllerState.internal.allTasksDone = true;
 
-    state.builderState.output = null;
-    state.verifierState.output = null;
-
     const doneUpdate: NonNullable<Partial<MainPipelineState>> = {
       controllerState: state.controllerState,
-      builderState: state.builderState,
-      verifierState: state.verifierState,
     };
     return doneUpdate;
   }
@@ -99,10 +106,10 @@ export function controllerNode(state: NonNullable<MainPipelineState>): NonNullab
   let isCorrection: NonNullable<boolean> = false;
   let correctionError: string | null | undefined = null;
 
-  if (SharedUtility.isNotNullOrUndf(verifierOutput) && !verifierOutput.success) {
+  if (verifierOutputFresh && Util.isNotNullOrUndf(verifierOutput) && !verifierOutput.success) {
     isCorrection = true;
     correctionError = `Verification failed: ${verifierOutput.failureDescription ?? "unknown issue"}`;
-  } else if (SharedUtility.isNotNullOrUndf(builderOutput) && !builderOutput.success) {
+  } else if (builderOutputFresh && Util.isNotNullOrUndf(builderOutput) && !builderOutput.success) {
     isCorrection = true;
     correctionError = `Build failed:\n${builderOutput.errorOutput ?? "unknown error"}`;
   }
@@ -119,13 +126,8 @@ export function controllerNode(state: NonNullable<MainPipelineState>): NonNullab
 
   state.controllerState.output = controllerOutput;
 
-  state.builderState.output = null;
-  state.verifierState.output = null;
-
   const taskUpdate: NonNullable<Partial<MainPipelineState>> = {
     controllerState: state.controllerState,
-    builderState: state.builderState,
-    verifierState: state.verifierState,
   };
   return taskUpdate;
 }

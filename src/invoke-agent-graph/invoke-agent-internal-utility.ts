@@ -5,7 +5,7 @@ import { type ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import * as Deepagents from "deepagents";
 import type { BackendProtocol, DeepAgent } from "deepagents";
 import * as Langchain from "langchain";
-import * as SharedUtility from "../shared/shared-utility";
+import * as Util from "../shared/util";
 
 export type InvokeAgentInternalOutput = {
   response: z.infer<z.ZodObject<ZodRawShape>> | null | undefined;
@@ -27,7 +27,7 @@ export async function invokeAgent(
     const agentToInvoke: NonNullable<DeepAgent> = Deepagents.createDeepAgent({
       model: model,
       backend: backend,
-      ...(SharedUtility.isNotNullOrEmpty(systemPrompt) && {
+      ...(Util.isNotNullOrEmpty(systemPrompt) && {
         systemPrompt: systemPrompt,
       }),
       responseFormat: Langchain.toolStrategy(responseZod),
@@ -45,9 +45,9 @@ export async function invokeAgent(
   }
 
   if (
-    !SharedUtility.isNotNullOrUndf(structuredResponse) ||
+    !Util.isNotNullOrUndf(structuredResponse) ||
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (!SharedUtility.isNotNullOrUndf((structuredResponse as any).length) && (structuredResponse as any).length <= 0)
+    (!Util.isNotNullOrUndf((structuredResponse as any).length) && (structuredResponse as any).length <= 0)
   ) {
     output = {
       response: null,
@@ -61,7 +61,7 @@ export async function invokeAgent(
   let validatedResponse: AgentOutput | null | undefined = null;
   // eslint-disable-next-line local/enforce-explicit-types, @typescript-eslint/no-explicit-any
   const validationResult: z.SafeParseReturnType<any, any> = responseZod.safeParse(structuredResponse);
-  if (!SharedUtility.isNotNullOrUndf(validationResult)) {
+  if (!Util.isNotNullOrUndf(validationResult)) {
     output = {
       response: null,
       success: false,
@@ -80,7 +80,7 @@ export async function invokeAgent(
     validatedResponse = validationResult.data;
   }
 
-  if (SharedUtility.isNotNullOrUndf(validatedResponse)) {
+  if (Util.isNotNullOrUndf(validatedResponse)) {
     output = {
       response: validatedResponse,
       success: true,

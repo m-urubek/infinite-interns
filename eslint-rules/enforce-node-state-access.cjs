@@ -21,8 +21,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const ANNOTATIONS_RELATIVE_PATH =
-  "src/main-pipeline-graph/main-pipeline-annotations.ts";
+const ANNOTATIONS_RELATIVE_PATH = "src/main-pipeline-graph/main-pipeline-annotations.ts";
 
 /** @type {string[] | null} */
 let cachedStateProperties = null;
@@ -52,9 +51,7 @@ function discoverStateProperties(filePath) {
     const content = fs.readFileSync(annotationsPath, "utf-8");
 
     // Extract the mainPipelineStateAnnotation block
-    const annotationStart = content.indexOf(
-      "mainPipelineStateAnnotation",
-    );
+    const annotationStart = content.indexOf("mainPipelineStateAnnotation");
     if (annotationStart === -1) {
       return [];
     }
@@ -71,6 +68,7 @@ function discoverStateProperties(filePath) {
     // Deduplicate (in case of duplicates from spread or comments)
     cachedStateProperties = [...new Set(properties)];
     return cachedStateProperties;
+    // eslint-disable-next-line no-unused-vars
   } catch (_e) {
     return [];
   }
@@ -106,16 +104,14 @@ function dirNameToStateProp(dirName) {
  * @returns {string | null}
  */
 function extractWrittenStateProperty(memberExpr, statePropertySet) {
+  /** @type {import("estree").Node} */
   let current = memberExpr;
   while (current.type === "MemberExpression") {
-    if (
-      !current.computed &&
-      current.property.type === "Identifier" &&
-      statePropertySet.has(current.property.name)
-    ) {
-      return current.property.name;
+    const memberCurrent = /** @type {import("estree").MemberExpression} */ (current);
+    if (!memberCurrent.computed && memberCurrent.property.type === "Identifier" && statePropertySet.has(memberCurrent.property.name)) {
+      return memberCurrent.property.name;
     }
-    current = current.object;
+    current = memberCurrent.object;
   }
   return null;
 }
@@ -143,8 +139,7 @@ module.exports = {
               type: "array",
               items: { type: "string" },
             },
-            description:
-              "Map of directory-name -> array of additional state properties the node may write to",
+            description: "Map of directory-name -> array of additional state properties the node may write to",
           },
         },
         additionalProperties: false,
@@ -170,16 +165,11 @@ module.exports = {
     const ownStateProp = dirNameToStateProp(dirName);
 
     const options = context.options[0] || {};
-    const stateProperties =
-      options.stateProperties || discoverStateProperties(normalized);
+    const stateProperties = options.stateProperties || discoverStateProperties(normalized);
     const crossStateExceptions = options.crossStateExceptions || {};
 
     const statePropertySet = new Set(stateProperties);
-    const allowedSet = new Set([
-      "invokeAgentState",
-      ownStateProp,
-      ...(crossStateExceptions[dirName] || []),
-    ]);
+    const allowedSet = new Set(["invokeAgentState", ownStateProp, ...(crossStateExceptions[dirName] || [])]);
 
     /**
      * @param {import("estree").Node} node
@@ -214,11 +204,7 @@ module.exports = {
           continue;
         }
         const keyName =
-          prop.key.type === "Identifier"
-            ? prop.key.name
-            : prop.key.type === "Literal"
-              ? String(prop.key.value)
-              : null;
+          prop.key.type === "Identifier" ? prop.key.name : prop.key.type === "Literal" ? String(prop.key.value) : null;
         if (keyName !== null) {
           reportIfForbidden(prop, keyName, "forbiddenReturnKey");
         }
@@ -230,10 +216,7 @@ module.exports = {
         if (node.left.type !== "MemberExpression") {
           return;
         }
-        const stateProp = extractWrittenStateProperty(
-          node.left,
-          statePropertySet,
-        );
+        const stateProp = extractWrittenStateProperty(node.left, statePropertySet);
         if (stateProp !== null) {
           reportIfForbidden(node, stateProp, "forbiddenStateWrite");
         }
@@ -243,10 +226,7 @@ module.exports = {
         if (node.argument.type !== "MemberExpression") {
           return;
         }
-        const stateProp = extractWrittenStateProperty(
-          node.argument,
-          statePropertySet,
-        );
+        const stateProp = extractWrittenStateProperty(node.argument, statePropertySet);
         if (stateProp !== null) {
           reportIfForbidden(node, stateProp, "forbiddenStateWrite");
         }
@@ -259,10 +239,7 @@ module.exports = {
         if (node.argument.type !== "MemberExpression") {
           return;
         }
-        const stateProp = extractWrittenStateProperty(
-          node.argument,
-          statePropertySet,
-        );
+        const stateProp = extractWrittenStateProperty(node.argument, statePropertySet);
         if (stateProp !== null) {
           reportIfForbidden(node, stateProp, "forbiddenStateWrite");
         }

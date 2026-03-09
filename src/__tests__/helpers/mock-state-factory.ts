@@ -43,6 +43,9 @@ function getDefaultState(): NonNullable<MainPipelineState> {
         builderAttempts: 0,
         verifierAttempts: 0,
         allTasksDone: false,
+        cycleCount: 0,
+        lastBuilderOutputCycle: -1,
+        lastVerifierOutputCycle: -1,
       },
     },
 

@@ -70,7 +70,15 @@ describe("routeAfterController", () => {
     const state = MockStateFactory.createMockState({
       controllerState: {
         output: null,
-        internal: { currentTaskIndex: 0, builderAttempts: 0, verifierAttempts: 0, allTasksDone: false },
+        internal: {
+          currentTaskIndex: 0,
+          builderAttempts: 0,
+          verifierAttempts: 0,
+          allTasksDone: false,
+          cycleCount: 0,
+          lastBuilderOutputCycle: -1,
+          lastVerifierOutputCycle: -1,
+        },
       },
     });
     const result: NonNullable<MainPipelineRouting.PostControllerRoute> =
@@ -82,7 +90,15 @@ describe("routeAfterController", () => {
     const state = MockStateFactory.createMockState({
       controllerState: {
         output: null,
-        internal: { currentTaskIndex: 2, builderAttempts: 0, verifierAttempts: 0, allTasksDone: true },
+        internal: {
+          currentTaskIndex: 2,
+          builderAttempts: 0,
+          verifierAttempts: 0,
+          allTasksDone: true,
+          cycleCount: 0,
+          lastBuilderOutputCycle: -1,
+          lastVerifierOutputCycle: -1,
+        },
       },
     });
     const result: NonNullable<MainPipelineRouting.PostControllerRoute> =

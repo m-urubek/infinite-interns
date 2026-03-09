@@ -13,7 +13,7 @@
 
 /**
  * Compute a suggested PascalCase namespace name from an import source string.
- * @param {string} source - The import source (e.g. "./shared/shared-utility.js" or "@langchain/langgraph")
+ * @param {string} source - The import source (e.g. "./shared/util.js" or "@langchain/langgraph")
  * @returns {string}
  */
 function computeSuggestedName(source) {

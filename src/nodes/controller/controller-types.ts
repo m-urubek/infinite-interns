@@ -15,6 +15,9 @@ export type ControllerInternal = {
   builderAttempts: NonNullable<number>;
   verifierAttempts: NonNullable<number>;
   allTasksDone: NonNullable<boolean>;
+  cycleCount: NonNullable<number>;
+  lastBuilderOutputCycle: NonNullable<number>;
+  lastVerifierOutputCycle: NonNullable<number>;
 };
 
 export type ControllerState = {

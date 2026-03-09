@@ -1,7 +1,7 @@
 import * as Langgraph from "@langchain/langgraph";
 import { type MainPipelineState } from "../../main-pipeline-graph/main-pipeline-types";
 import { type ClarifyingQuestion } from "../../main-pipeline-graph/main-pipeline-types";
-import * as SharedUtility from "../../shared/shared-utility";
+import * as Util from "../../shared/util";
 import { type PrdAnalyzerOutput } from "../../agents/prd-analyzer/prd-analyzer-types";
 
 type HumanAnswers = NonNullable<Array<string>>;
@@ -11,7 +11,7 @@ export function answerClarificationsNode(
 ): NonNullable<Partial<MainPipelineState>> {
   // Read from upstream output (prdAnalyzerState.output)
   const analyzerOutput: PrdAnalyzerOutput | null | undefined = state.prdAnalyzerState.output;
-  if (!SharedUtility.isNotNullOrUndf(analyzerOutput)) {
+  if (!Util.isNotNullOrUndf(analyzerOutput)) {
     throw new Error("PRD Analyzer output is null or undefined");
   }
   const questions: NonNullable<Array<string>> = analyzerOutput.questions;

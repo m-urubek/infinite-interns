@@ -7,7 +7,7 @@ import { type InvokeAgentOutput } from "../../invoke-agent-graph/invoke-agent-ty
 import * as MainPipelineAnnotations from "../../main-pipeline-graph/main-pipeline-annotations.js";
 import { type PlannerOutput } from "./planner-types.js";
 import { type PrdAnalyzerOutput } from "../prd-analyzer/prd-analyzer-types.js";
-import * as SharedUtility from "../../shared/shared-utility.js";
+import * as Util from "../../shared/util.js";
 import * as Zod from "zod";
 
 export const plannerAgentOutputSchema = Zod.z.object({
@@ -96,11 +96,11 @@ function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainP
     })();
   const prd: NonNullable<string> = analyzerOutput.prd;
 
-  const clarificationsJson: NonNullable<string> = SharedUtility.isNotNullOrEmpty(analyzerOutput.clarifications)
+  const clarificationsJson: NonNullable<string> = Util.isNotNullOrEmpty(analyzerOutput.clarifications)
     ? JSON.stringify(analyzerOutput.clarifications, null, 2)
     : "No clarifications were needed.";
 
-  const buildCommandNote: NonNullable<string> = SharedUtility.isNotNullOrEmpty(state.buildCommand)
+  const buildCommandNote: NonNullable<string> = Util.isNotNullOrEmpty(state.buildCommand)
     ? `The user has provided a build command: \`${state.buildCommand}\`. Use this exact command.`
     : "No build command was provided. Determine the correct build command by analyzing the project.";
 

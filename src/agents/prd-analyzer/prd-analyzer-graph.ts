@@ -3,7 +3,7 @@ import * as GeminiFlashModel from "../../shared/gemini-flash-model.js";
 import * as ReadOnlyBackend from "../../backends/read-only-backend.js";
 import * as InvokeAgentGraphFactory from "../../invoke-agent-graph/invoke-agent-graph-factory.js";
 import { type MainPipelineState } from "../../main-pipeline-graph/main-pipeline-types.js";
-import * as SharedUtility from "../../shared/shared-utility.js";
+import * as Util from "../../shared/util.js";
 import { type InvokeAgentOutput } from "../../invoke-agent-graph/invoke-agent-types.js";
 import * as MainPipelineAnnotations from "../../main-pipeline-graph/main-pipeline-annotations.js";
 import { type PrdAnalyzerOutput, type PrdAnalyzerAgentResult } from "./prd-analyzer-types.js";
@@ -74,7 +74,7 @@ ${state.assignment}
 </my-assignment>
 
 <previous-clarifications>
-${SharedUtility.isNotNullOrEmpty(previousClarifications) ? JSON.stringify(previousClarifications, null, 2) : "No previous clarifications."}
+${Util.isNotNullOrEmpty(previousClarifications) ? JSON.stringify(previousClarifications, null, 2) : "No previous clarifications."}
 </previous-clarifications>
 `;
 

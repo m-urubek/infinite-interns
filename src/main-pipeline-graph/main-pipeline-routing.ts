@@ -1,5 +1,5 @@
 import { type MainPipelineState } from "./main-pipeline-types";
-import * as SharedUtility from "../shared/shared-utility";
+import * as Util from "../shared/util";
 import { type PrdAnalyzerOutput } from "../agents/prd-analyzer/prd-analyzer-types";
 
 const MAX_CLARIFICATION_ROUNDS: NonNullable<number> = 5;
@@ -13,7 +13,7 @@ export type PostAnalyzerRoute = "answerClarificationsNode" | "plannerGraph";
 export function routeAfterAnalyzer(state: NonNullable<MainPipelineState>): NonNullable<PostAnalyzerRoute> {
   const analyzerOutput: PrdAnalyzerOutput | null | undefined = state.prdAnalyzerState.output;
 
-  if (!SharedUtility.isNotNullOrUndf(analyzerOutput)) {
+  if (!Util.isNotNullOrUndf(analyzerOutput)) {
     throw new Error("PRD Analyzer output is null or undefined after analysis");
   }
 
@@ -54,7 +54,7 @@ export function routeAfterController(state: NonNullable<MainPipelineState>): Non
 export type PostBuilderRoute = "verifierGraph" | "controllerNode";
 
 export function routeAfterBuilder(state: NonNullable<MainPipelineState>): NonNullable<PostBuilderRoute> {
-  if (!SharedUtility.isNotNullOrUndf(state.builderState.output)) {
+  if (!Util.isNotNullOrUndf(state.builderState.output)) {
     throw new Error("Builder output is null or undefined after build");
   }
 

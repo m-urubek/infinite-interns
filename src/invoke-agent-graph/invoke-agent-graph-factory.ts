@@ -1,5 +1,5 @@
 import * as Langgraph from "@langchain/langgraph";
-import * as SharedUtility from "../shared/shared-utility";
+import * as Util from "../shared/util";
 import type { InvokeAgentInput, InvokeAgentInternal, Message } from "./invoke-agent-types";
 import * as InvokeAgentInternalUtility from "./invoke-agent-internal-utility";
 import type { InvokeAgentInternalOutput } from "./invoke-agent-internal-utility";
@@ -40,7 +40,7 @@ export function createInvokeAgentGraph(
     );
 
     if (agentOutput.success) {
-      if (!SharedUtility.isNotNullOrUndf(agentOutput.response)) {
+      if (!Util.isNotNullOrUndf(agentOutput.response)) {
         throw new Error("Failed to generate response - response is null or undefined");
       }
       state.invokeAgentState.output = {
@@ -61,8 +61,8 @@ export function createInvokeAgentGraph(
     const internalState: NonNullable<InvokeAgentInternal> = state.invokeAgentState.internal;
     const input: NonNullable<InvokeAgentInput> = state.invokeAgentState.input;
 
-    internalState.currentInSessionAttempt = SharedUtility.applyDefault(internalState.currentInSessionAttempt, 2); // second message
-    internalState.currentSessionAttempt = SharedUtility.applyDefault(internalState.currentSessionAttempt, 1); // first session
+    internalState.currentInSessionAttempt = Util.applyDefault(internalState.currentInSessionAttempt, 2); // second message
+    internalState.currentSessionAttempt = Util.applyDefault(internalState.currentSessionAttempt, 1); // first session
 
     const messages: NonNullable<Array<Message>> = [...(input.conversationHistory ?? [])];
     messages.push({ role: "user", content: input.userMessage });
@@ -79,7 +79,7 @@ export function createInvokeAgentGraph(
             })()),
       });
 
-      await SharedUtility.sleep(5000);
+      await Util.sleep(5000);
 
       const backend: NonNullable<BackendProtocol> = new backendClass({ rootDir: state.projectDir });
       const agentOutput: NonNullable<InvokeAgentInternalOutput> = await InvokeAgentInternalUtility.invokeAgent(
@@ -91,7 +91,7 @@ export function createInvokeAgentGraph(
       );
 
       if (agentOutput.success) {
-        if (!SharedUtility.isNotNullOrUndf(agentOutput.response)) {
+        if (!Util.isNotNullOrUndf(agentOutput.response)) {
           throw new Error("Failed to generate response - response is null or undefined");
         }
         state.invokeAgentState.output = {

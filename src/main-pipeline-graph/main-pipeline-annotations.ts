@@ -1,5 +1,5 @@
 import * as Langgraph from "@langchain/langgraph";
-import * as SharedUtility from "../shared/shared-utility";
+import * as Util from "../shared/util";
 import { type InvokeAgentState } from "../invoke-agent-graph/invoke-agent-types";
 import { type PrdGeneratorState } from "../agents/prd-generator/prd-generator-types";
 import { type PrdAnalyzerState } from "../agents/prd-analyzer/prd-analyzer-types";
@@ -21,7 +21,7 @@ export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({
   ...mainPipelineInputAnnotation.spec,
 
   invokeAgentState: Langgraph.Annotation<InvokeAgentState>({
-    reducer: SharedUtility.lastValue,
+    reducer: Util.lastValue,
     default: (): NonNullable<InvokeAgentState> => ({
       input: { conversationHistory: null, userMessage: "" },
       output: null,
@@ -35,21 +35,21 @@ export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({
   }),
 
   prdGeneratorState: Langgraph.Annotation<PrdGeneratorState>({
-    reducer: SharedUtility.lastValue,
+    reducer: Util.lastValue,
     default: (): NonNullable<PrdGeneratorState> => ({
       output: { prd: "", clarifications: null },
     }),
   }),
 
   prdAnalyzerState: Langgraph.Annotation<PrdAnalyzerState>({
-    reducer: SharedUtility.lastValue,
+    reducer: Util.lastValue,
     default: (): NonNullable<PrdAnalyzerState> => ({
       output: null,
     }),
   }),
 
   answerClarificationsState: Langgraph.Annotation<AnswerClarificationsState>({
-    reducer: SharedUtility.lastValue,
+    reducer: Util.lastValue,
     default: (): NonNullable<AnswerClarificationsState> => ({
       output: null,
       internal: { clarificationRound: 0 },
@@ -57,14 +57,14 @@ export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({
   }),
 
   plannerState: Langgraph.Annotation<PlannerState>({
-    reducer: SharedUtility.lastValue,
+    reducer: Util.lastValue,
     default: (): NonNullable<PlannerState> => ({
       output: null,
     }),
   }),
 
   controllerState: Langgraph.Annotation<ControllerState>({
-    reducer: SharedUtility.lastValue,
+    reducer: Util.lastValue,
     default: (): NonNullable<ControllerState> => ({
       output: null,
       internal: {
@@ -72,33 +72,36 @@ export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({
         builderAttempts: 0,
         verifierAttempts: 0,
         allTasksDone: false,
+        cycleCount: 0,
+        lastBuilderOutputCycle: -1,
+        lastVerifierOutputCycle: -1,
       },
     }),
   }),
 
   implementerState: Langgraph.Annotation<ImplementerState>({
-    reducer: SharedUtility.lastValue,
+    reducer: Util.lastValue,
     default: (): NonNullable<ImplementerState> => ({
       output: null,
     }),
   }),
 
   builderState: Langgraph.Annotation<BuilderState>({
-    reducer: SharedUtility.lastValue,
+    reducer: Util.lastValue,
     default: (): NonNullable<BuilderState> => ({
       output: null,
     }),
   }),
 
   verifierState: Langgraph.Annotation<VerifierState>({
-    reducer: SharedUtility.lastValue,
+    reducer: Util.lastValue,
     default: (): NonNullable<VerifierState> => ({
       output: null,
     }),
   }),
 
   finalVerifierState: Langgraph.Annotation<FinalVerifierState>({
-    reducer: SharedUtility.lastValue,
+    reducer: Util.lastValue,
     default: (): NonNullable<FinalVerifierState> => ({
       output: null,
     }),

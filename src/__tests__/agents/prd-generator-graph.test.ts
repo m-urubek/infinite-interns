@@ -19,9 +19,9 @@ vi.mock("../../invoke-agent-graph/invoke-agent-internal-utility.js", () => ({
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-vi.mock("../../shared/shared-utility.js", async (): Promise<any> => {
+vi.mock("../../shared/util.js", async (): Promise<any> => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const actual: any = await vi.importActual("../../shared/shared-utility.js");
+  const actual: any = await vi.importActual("../../shared/util.js");
   const mod = {
     ...actual,
     sleep: () => Promise.resolve(),
