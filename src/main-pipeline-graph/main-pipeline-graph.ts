@@ -2,9 +2,6 @@ import * as Langgraph from "@langchain/langgraph";
 import * as MainPipelineAnnotations from "./main-pipeline-annotations";
 import * as PrdGeneratorGraph from "../agents/prd-generator/prd-generator-graph";
 import * as PrdAnalyzerGraph from "../agents/prd-analyzer/prd-analyzer-graph";
-import { type MainPipelineState } from "./main-pipeline-types";
-import * as SharedUtility from "../shared/shared-utility";
-import { type PrdAnalyzerOutput } from "../agents/prd-analyzer/prd-analyzer-types";
 import * as AnswerClarificationsNode from "../nodes/answer-clarifications/answer-clarifications-node";
 import * as PlannerGraph from "../agents/planner/planner-graph";
 import * as ControllerNode from "../nodes/controller/controller-node";
@@ -12,72 +9,17 @@ import * as ImplementerGraph from "../agents/implementer/implementer-graph";
 import * as BuilderNode from "../nodes/builder/builder-node";
 import * as VerifierGraph from "../agents/verifier/verifier-graph";
 import * as FinalVerifierGraph from "../agents/final-verifier/final-verifier-graph";
+import * as MainPipelineRouting from "./main-pipeline-routing";
+import { type PostAnalyzerRoute, type PostControllerRoute, type PostBuilderRoute } from "./main-pipeline-routing";
+import { type MainPipelineState } from "./main-pipeline-types";
 
-const MAX_CLARIFICATION_ROUNDS: NonNullable<number> = 5;
+type AnalyzerRouteFunction = (state: NonNullable<MainPipelineState>) => NonNullable<PostAnalyzerRoute>;
+type ControllerRouteFunction = (state: NonNullable<MainPipelineState>) => NonNullable<PostControllerRoute>;
+type BuilderRouteFunction = (state: NonNullable<MainPipelineState>) => NonNullable<PostBuilderRoute>;
 
-// ---------------------------------------------------------------------------
-// Routing: after analyzer, decide whether to ask for clarifications or plan
-// ---------------------------------------------------------------------------
-
-type PostAnalyzerRoute = "answerClarificationsNode" | "plannerGraph";
-
-function routeAfterAnalyzer(state: NonNullable<MainPipelineState>): NonNullable<PostAnalyzerRoute> {
-  const analyzerOutput: PrdAnalyzerOutput | null | undefined = state.prdAnalyzerState.output;
-
-  if (!SharedUtility.isNotNullOrUndf(analyzerOutput)) {
-    throw new Error("PRD Analyzer output is null or undefined after analysis");
-  }
-
-  let resultRoute: NonNullable<PostAnalyzerRoute>;
-
-  const roundLimitReached: NonNullable<boolean> =
-    state.answerClarificationsState.internal.clarificationRound >= MAX_CLARIFICATION_ROUNDS;
-
-  if (!analyzerOutput.needsClarification || roundLimitReached) {
-    resultRoute = "plannerGraph" as NonNullable<PostAnalyzerRoute>;
-  } else {
-    resultRoute = "answerClarificationsNode" as NonNullable<PostAnalyzerRoute>;
-  }
-  return resultRoute;
-}
-
-// ---------------------------------------------------------------------------
-// Routing: after controller, decide whether to implement or finalize
-// ---------------------------------------------------------------------------
-
-type PostControllerRoute = "implementerGraph" | "finalVerifierGraph";
-
-function routeAfterController(state: NonNullable<MainPipelineState>): NonNullable<PostControllerRoute> {
-  let resultRoute: NonNullable<PostControllerRoute>;
-
-  if (state.controllerState.internal.allTasksDone) {
-    resultRoute = "finalVerifierGraph" as NonNullable<PostControllerRoute>;
-  } else {
-    resultRoute = "implementerGraph" as NonNullable<PostControllerRoute>;
-  }
-  return resultRoute;
-}
-
-// ---------------------------------------------------------------------------
-// Routing: after builder, decide whether to verify or correct
-// ---------------------------------------------------------------------------
-
-type PostBuilderRoute = "verifierGraph" | "controllerNode";
-
-function routeAfterBuilder(state: NonNullable<MainPipelineState>): NonNullable<PostBuilderRoute> {
-  if (!SharedUtility.isNotNullOrUndf(state.builderState.output)) {
-    throw new Error("Builder output is null or undefined after build");
-  }
-
-  let resultRoute: NonNullable<PostBuilderRoute>;
-
-  if (state.builderState.output.success) {
-    resultRoute = "verifierGraph" as NonNullable<PostBuilderRoute>;
-  } else {
-    resultRoute = "controllerNode" as NonNullable<PostBuilderRoute>;
-  }
-  return resultRoute;
-}
+const routeAfterAnalyzer: NonNullable<AnalyzerRouteFunction> = MainPipelineRouting.routeAfterAnalyzer;
+const routeAfterController: NonNullable<ControllerRouteFunction> = MainPipelineRouting.routeAfterController;
+const routeAfterBuilder: NonNullable<BuilderRouteFunction> = MainPipelineRouting.routeAfterBuilder;
 
 // ---------------------------------------------------------------------------
 // Main pipeline graph

@@ -1,7 +1,4 @@
 /* eslint-disable no-undef */
-// eslint-disable-next-line local/enforce-namespace-imports
-import { setMaxListeners } from "node:events";
-setMaxListeners(20);
 
 import * as MainPipelineGraph from "./main-pipeline-graph/main-pipeline-graph";
 
@@ -41,5 +38,4 @@ async function main(): NonNullable<Promise<void>> {
 
 main().catch((error: unknown) => {
   console.error("Fatal error:", error);
-  process.exit(1);
 });

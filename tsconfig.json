@@ -24,6 +24,7 @@
     "noUnusedParameters": true,
     "noUncheckedSideEffectImports": true,
     "noPropertyAccessFromIndexSignature": true,
+    "types": ["vitest/globals", "node"],
     "plugins": [{ "name": "namespace-import-plugin" }]
   },
   "include": ["src"]

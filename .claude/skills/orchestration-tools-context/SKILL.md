@@ -1,4 +1,6 @@
 <context>
+Every time you add some new feature or logical unit, write it down to this file - .claude/skills/orchestration-tools-context/SKILL.md
+
 # Orchestration Tools - Technical Summary
 
 > This document provides technical context for AI agents working on this codebase.
@@ -976,5 +978,218 @@ export const mainPipelineInputAnnotation = Langgraph.Annotation.Root({
 ```
 
 If `buildCommand` is provided by the user, the planner uses it directly. If null/undefined, the planner determines the appropriate build command by analyzing the codebase.
+
+## Unit Testing
+
+### MANDATORY: Tests Required for All Changes
+
+**Every code change MUST include corresponding unit tests.** This applies to:
+
+- **New features**: Add tests covering the new node/subgraph/routing function
+- **Bug fixes**: Add a test that reproduces the bug (fails without the fix, passes with it)
+- **Refactoring**: Ensure existing tests still pass; add new tests if behavior boundaries change
+
+Do NOT skip tests even when the user only asks to "fix" something or "add" a feature. Tests are part of the definition of done.
+
+### Test Structure
+
+```
+src/__tests__/
+  helpers/
+    mock-state-factory.ts          # Creates full MainPipelineState with overrides
+  infrastructure/
+    shared-utility.test.ts         # Tests for shared utility functions
+  routing/
+    main-pipeline-routing.test.ts  # Tests for routing functions
+  nodes/
+    controller-node.test.ts        # Tests for controller node
+    builder-node.test.ts           # Tests for builder node
+    answer-clarifications-node.test.ts  # Tests for clarification node
+  agents/
+    prd-generator-graph.test.ts    # Tests for PRD generator subgraph
+    prd-analyzer-graph.test.ts     # Tests for PRD analyzer subgraph
+    planner-graph.test.ts          # Tests for planner subgraph
+    implementer-graph.test.ts      # Tests for implementer subgraph
+    verifier-graph.test.ts         # Tests for verifier subgraph
+    final-verifier-graph.test.ts   # Tests for final verifier subgraph
+```
+
+### Mock State Factory
+
+Use `MockStateFactory.createMockState(overrides?)` to create full `MainPipelineState` objects. It provides sensible defaults and accepts deep partial overrides:
+
+```typescript
+import * as MockStateFactory from "../helpers/mock-state-factory";
+
+const state = MockStateFactory.createMockState({
+  controllerState: {
+    output: {
+      currentTaskIndex: 0,
+      currentTask: { title: "Add user model", description: "Create user model", relevantFiles: ["src/models/user.ts"] },
+      buildCommand: "npm run build",
+      prd: "Full PRD document",
+      allTasksSummary: "1. Add user model",
+      isCorrection: false,
+      correctionError: null,
+    },
+    internal: { currentTaskIndex: 0, builderAttempts: 0, verifierAttempts: 0, allTasksDone: false },
+  },
+});
+```
+
+### Testing Agent Subgraphs (LLM-backed)
+
+Agent subgraphs have private `setup`/`process` functions. Test them through the compiled subgraph by mocking `invokeAgent` — the single LLM chokepoint. All `vi.mock()` calls are hoisted above imports by Vitest, so mocks are active before module-level `createInvokeAgentGraph()` runs.
+
+**Required mocks for every agent test** (place BEFORE the agent import):
+
+```typescript
+import { type InvokeAgentInternalOutput } from "../../invoke-agent-graph/invoke-agent-internal-utility";
+import * as MockStateFactory from "../helpers/mock-state-factory";
+
+// 1. Mock the LLM model (never used when invokeAgent is mocked)
+vi.mock("../../shared/gemini-flash-model.js", () => ({
+  geminiFlashLLMMedium: {},
+}));
+
+// 2. Mock the backend class (instantiated but never called)
+// Use the appropriate backend for the agent being tested:
+// - ReadOnlyBackend for prd-generator, prd-analyzer
+// - ReadOnlyShellBackend for planner, verifier, final-verifier
+// - deepagents LocalShellBackend for implementer
+vi.mock("../../backends/read-only-backend.js", () => ({
+  ReadOnlyBackend: class {
+    constructor() {}
+  },
+}));
+
+// 3. Mock invokeAgent — the single LLM chokepoint
+const invokeAgentMock = vi.fn();
+vi.mock("../../invoke-agent-graph/invoke-agent-internal-utility.js", () => ({
+  invokeAgent: (...args: NonNullable<Array<unknown>>) => invokeAgentMock(...args),
+}));
+
+// 4. Mock sleep to resolve immediately (used in retry logic)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+vi.mock("../../shared/shared-utility.js", async (): Promise<any> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const actual: any = await vi.importActual("../../shared/shared-utility.js");
+  const mod = { ...actual, sleep: () => Promise.resolve() };
+  return mod;
+});
+
+// IMPORTANT: Import the agent AFTER all vi.mock() calls
+import * as MyAgentGraph from "../../agents/my-agent/my-agent-graph";
+```
+
+**Writing the test:**
+
+```typescript
+describe("myAgentGraph", () => {
+  beforeEach(() => {
+    invokeAgentMock.mockReset();
+  });
+
+  it("produces correct output structure", async (): Promise<void> => {
+    // Mock the LLM response (must match the agent's Zod schema)
+    const mockResponse: NonNullable<InvokeAgentInternalOutput> = {
+      response: { result: "Some result", confidence: 8 },
+      success: true,
+      errorMessage: null,
+    };
+    invokeAgentMock.mockResolvedValue(mockResponse);
+
+    const state = MockStateFactory.createMockState({
+      /* overrides */
+    });
+    const result = await MyAgentGraph.myAgentGraph.invoke(state);
+
+    // Verify output structure — NOT LLM content meaning
+    expect(result.myAgentState.output?.result).toBe("Some result");
+    expect(result.myAgentState.output?.confidence).toBe(8);
+  });
+});
+```
+
+**What to verify in agent tests:**
+
+- Output fields are correctly populated from the mock response
+- The user message passed to `invokeAgent` contains expected data (PRD, task description, etc.)
+- Correction vs initial paths construct different messages
+- Error paths throw or handle gracefully
+
+### Testing Standalone Nodes (No LLM)
+
+Standalone nodes (`controllerNode`, `builderNode`, `answerClarificationsNode`) are directly exported and can be called with mock state:
+
+```typescript
+import * as ControllerNode from "../../nodes/controller/controller-node";
+import * as MockStateFactory from "../helpers/mock-state-factory";
+
+const state = MockStateFactory.createMockState({
+  /* overrides */
+});
+const result = ControllerNode.controllerNode(state);
+expect(result.controllerState?.output?.currentTaskIndex).toBe(0);
+```
+
+**For `builderNode`** — mock `node:child_process`:
+
+```typescript
+let execMockImpl: NonNullable<ExecMockFunction>;
+vi.mock("node:child_process", () => ({
+  exec: (...args: NonNullable<Array<unknown>>) => execMockImpl(...args),
+}));
+```
+
+**For `answerClarificationsNode`** — mock `@langchain/langgraph` interrupt:
+
+```typescript
+let interruptReturnValue: NonNullable<Array<string>> = [];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+vi.mock("@langchain/langgraph", async (): Promise<any> => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const actual: any = await vi.importActual("@langchain/langgraph");
+  const mod = { ...actual, interrupt: () => interruptReturnValue };
+  return mod;
+});
+```
+
+### Testing Routing Functions
+
+Routing functions are pure functions in `src/main-pipeline-graph/main-pipeline-routing.ts`. Test directly:
+
+```typescript
+import * as MainPipelineRouting from "../../main-pipeline-graph/main-pipeline-routing";
+import * as MockStateFactory from "../helpers/mock-state-factory";
+
+const state = MockStateFactory.createMockState({
+  /* overrides */
+});
+const route = MainPipelineRouting.routeAfterAnalyzer(state);
+expect(route).toBe("plannerGraph");
+```
+
+### Test Verification Rules
+
+- **Structure over semantics**: Verify output shapes, field types, ranges (e.g., confidence 0-10), non-empty strings — NOT LLM output meaning
+- **Error paths**: Test that nodes throw on invalid input (null upstream output, exceeded retry limits)
+- **Message construction**: Verify that setup nodes include expected data in the user message (check with `toContain`)
+- **State clearing**: Verify that nodes clear downstream state when needed (e.g., controller clears builder/verifier output)
+
+### Running Tests
+
+```bash
+npm test          # Run all tests
+npm run fix       # Lint + type check (always run after writing tests)
+```
+
+### ESLint Config for Test Files
+
+Test files have relaxed rules (configured in `eslint.config.js`):
+
+- `checkExplicitNullability: false` — no need to wrap every type in `NonNullable<>`
+- `@typescript-eslint/no-unnecessary-condition: "off"` — allows optional chaining on test results
+- Vitest globals (`describe`, `it`, `expect`, `vi`, etc.) are registered as readonly globals
 
 </context>
