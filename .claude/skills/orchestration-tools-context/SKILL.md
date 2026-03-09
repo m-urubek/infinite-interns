@@ -5,7 +5,7 @@
 
 ## Project Overview
 
-Orchestration Tools is a LangChain-based autonomous software development pipeline. It uses LangGraph to orchestrate specialized AI agents that collaborate to implement features from a task description. The project is in active development — the architecture has been modularized into composable subgraphs, with only the PRD generator agent currently implemented. Other agents will be added incrementally.
+Orchestration Tools is a LangChain-based autonomous software development pipeline. It uses LangGraph to orchestrate specialized AI agents that collaborate to implement features from a task description. The project is in active development — the architecture has been modularized into composable subgraphs.
 
 **Key Architecture Note:** The system uses the `deepagents` npm package from LangChain, which provides built-in filesystem tools, planning capabilities, and subagent support. Agents use custom wrapper backends (`ReadOnlyBackend`, `ReadOnlyShellBackend`) to enforce permission boundaries.
 
@@ -15,9 +15,13 @@ Orchestration Tools is a LangChain-based autonomous software development pipelin
 - **LLM Provider**: Google Gemini (`gemini-3-flash-preview` model)
 - **Agent Framework**: `deepagents` v1.8.1 (provides filesystem tools, planning, subagents)
 - **Orchestration**: LangGraph StateGraph with subgraph composition
-- **Structured Output**: Zod schemas via `responseFormat`
+- **Structured Output**: Zod schemas via `toolStrategy` (NOT `providerStrategy` — see note below)
 - **Development Server**: `@langchain/langgraph-cli` (LangGraph Studio integration)
 - **Testing**: Vitest
+
+### Structured Output Strategy
+
+Always use `Langchain.toolStrategy(zodSchema)` for structured output, NOT `providerStrategy`. The `providerStrategy` uses native JSON schema mode which does not work reliably with Gemini when tools are also bound to the agent. The `toolStrategy` adds a synthetic tool call for structured output extraction, which works correctly alongside other tools.
 
 ### Key Dependencies
 
@@ -36,19 +40,43 @@ Orchestration Tools is a LangChain-based autonomous software development pipelin
 ```
 src/
 ├── agents/                           # Specialized agents (each in own directory)
-│   └── prd-generator/                # PRD generation agent
-│       ├── prd-generator-graph.ts    # Subgraph: setup → invoke → process
-│       └── prd-generator-types.ts    # State types for PRD generator
+│   ├── prd-generator/                # PRD generation agent
+│   │   ├── prd-generator-graph.ts    # Subgraph: setup → invoke → process
+│   │   └── prd-generator-types.ts    # State types for PRD generator
+│   ├── prd-analyzer/                 # PRD analysis agent
+│   │   ├── prd-analyzer-graph.ts     # Subgraph: setup → invoke → process
+│   │   └── prd-analyzer-types.ts     # State types for PRD analyzer
+│   ├── planner/                      # Implementation planner agent
+│   │   ├── planner-graph.ts          # Subgraph: setup → invoke → process
+│   │   └── planner-types.ts          # State types for planner (PlannerTask, etc.)
+│   ├── implementer/                  # Code implementation agent (FULL write access)
+│   │   ├── implementer-graph.ts      # Subgraph: setup → invoke → process
+│   │   └── implementer-types.ts      # State types for implementer
+│   ├── verifier/                     # Task verification agent
+│   │   ├── verifier-graph.ts         # Subgraph: setup → invoke → process
+│   │   └── verifier-types.ts         # State types for verifier
+│   └── final-verifier/              # Final holistic verification agent
+│       ├── final-verifier-graph.ts   # Subgraph: setup → invoke → process
+│       └── final-verifier-types.ts   # State types for final verifier
+├── nodes/                            # Standalone pipeline nodes (no LLM)
+│   ├── answer-clarifications/        # Human clarification interrupt node
+│   │   ├── answer-clarifications-node.ts
+│   │   └── answer-clarifications-types.ts
+│   ├── controller/                   # Task iteration controller
+│   │   ├── controller-node.ts        # Orchestrates implementer/builder/verifier loops
+│   │   └── controller-types.ts       # State types for controller
+│   └── builder/                      # Build command executor
+│       ├── builder-node.ts           # Runs build command, checks exit code
+│       └── builder-types.ts          # State types for builder
 ├── backends/                         # Permission-enforcing backend wrappers
 │   ├── read-only-backend.ts          # Read-only filesystem (blocks write/edit)
 │   └── read-only-shell-backend.ts    # Read + execute (blocks write/edit)
 ├── invoke-agent-graph/               # Reusable agent invocation subgraph
 │   ├── invoke-agent-graph-factory.ts # Factory: creates invoke subgraph with retries
 │   ├── invoke-agent-internal-utility.ts # Core: instantiates deepagent + validates output
-│   ├── invoke-agent-types.ts         # State/IO types for invoke graph
-│   └── invoke-agent-annotations.ts   # LangGraph annotations (legacy, mostly commented)
+│   └── invoke-agent-types.ts         # State/IO types for invoke graph
 ├── main-pipeline-graph/              # Top-level pipeline orchestration
-│   ├── main-pipeline-graph.ts        # Main graph: currently prdGenerator only
+│   ├── main-pipeline-graph.ts        # Main graph: subgraphs + nodes + routing
 │   ├── main-pipeline-annotations.ts  # State annotations for pipeline
 │   ├── main-pipeline-types.ts        # Type definitions (ClarifyingQuestion, etc.)
 │   └── main-pipeline-utility.ts      # (empty, placeholder)
@@ -66,7 +94,7 @@ eslint-rules/                         # Custom ESLint rules
 ts-plugins/                           # TypeScript compiler plugins
 └── namespace-import-plugin/          # Enforces namespace imports at TS level
 
-langgraph.json                        # LangGraph CLI config (needs update)
+langgraph.json                        # LangGraph CLI config
 ```
 
 ## Architecture Patterns
@@ -77,9 +105,15 @@ The pipeline is built from composable LangGraph subgraphs. Each agent is a self-
 
 ```
 Main Pipeline Graph
-  └── PRD Generator Subgraph
-        └── Invoke Agent Subgraph (reusable)
-              └── DeepAgent (from deepagents package)
+  ├── PRD Generator Subgraph          (Invoke Agent Subgraph)
+  ├── PRD Analyzer Subgraph           (Invoke Agent Subgraph)
+  ├── answerClarificationsNode        (interrupt for human input)
+  ├── Planner Subgraph                (Invoke Agent Subgraph)
+  ├── controllerNode                  (plain node — task iteration)
+  │     ├── Implementer Subgraph      (Invoke Agent Subgraph, FULL write access)
+  │     ├── builderNode               (plain node — runs build command)
+  │     └── Verifier Subgraph         (Invoke Agent Subgraph)
+  └── Final Verifier Subgraph         (Invoke Agent Subgraph)
 ```
 
 ### 2. Invoke Agent Graph (Reusable)
@@ -88,56 +122,327 @@ The `invoke-agent-graph` module is a generic, reusable subgraph for invoking any
 
 ```typescript
 createInvokeAgentGraph(
-  backendClass,         // Backend type (ReadOnly, ReadOnlyShell, LocalShell)
-  model,                // LLM model instance
-  systemPrompt,         // Agent system prompt
-  responseZod,          // Zod schema for structured output validation
-  maxInSessionAttempts,  // Retries within same session (default 3)
-  maxSessionAttempts     // Fresh session retries (default 3)
-)
+  backendClass, // Backend type (ReadOnly, ReadOnlyShell, LocalShell)
+  model, // LLM model instance
+  systemPrompt, // Agent system prompt
+  responseZod, // Zod schema for structured output validation
+  maxInSessionAttempts, // Retries within same session (default 3)
+  maxSessionAttempts // Fresh session retries (default 3)
+);
 ```
 
 **Flow:** firstInvoke → [success? → end] / [fail? → repeat → ...]
 
 Retry logic includes exponential backoff (5s sleep between retries).
 
-### 3. Agent Directory Pattern
+### 3. Agent/Node Directory Pattern
 
-Each agent lives in its own directory under `src/agents/` with:
-- `*-graph.ts` — The subgraph definition (setup → invoke → process nodes)
-- `*-types.ts` — State and IO type definitions
+Each agent or standalone node lives in its own directory under `src/agents/` with:
 
-### 4. Backend Permission Model
+- `*-graph.ts` — For subgraphs (setup → invoke → process nodes)
+- `*-node.ts` — For standalone pipeline nodes (not subgraphs)
+- `*-types.ts` — State and IO type definitions (if needed)
+
+### 4. Node Naming Convention
+
+**CRITICAL: `.addNode()` calls must follow these rules:**
+
+1. The first parameter (string name) must end with either `Node` or `Graph` to clearly indicate what it is
+2. The first parameter (string name) and second parameter (variable reference) must match in name
+
+```typescript
+// ✅ GOOD - name matches variable, ends with Graph/Node
+.addNode("prdGeneratorGraph", PrdGeneratorGraph.prdGeneratorGraph)
+.addNode("answerClarificationsNode", AnswerClarificationsNode.answerClarificationsNode)
+
+// ❌ BAD - name doesn't end with Graph/Node
+.addNode("answerClarifications", answerClarificationsNode)
+
+// ❌ BAD - name doesn't match variable
+.addNode("analyzer", PrdAnalyzerGraph.prdAnalyzerGraph)
+```
+
+### 5. Backend Permission Model
 
 Agents have different filesystem access levels enforced at the backend level:
 
-| Backend              | Capabilities                              | Use Case                    |
-| -------------------- | ----------------------------------------- | --------------------------- |
-| `ReadOnlyBackend`    | read_file, glob, grep, ls (NO write)      | Analysis-only agents        |
-| `ReadOnlyShellBackend` | read + execute (NO write)               | Verification agents         |
-| `LocalShellBackend`  | **FULL ACCESS** (read, write, execute)    | Implementation agents       |
+| Backend                | Capabilities                           | Use Case              |
+| ---------------------- | -------------------------------------- | --------------------- |
+| `ReadOnlyBackend`      | read_file, glob, grep, ls (NO write)   | Analysis-only agents  |
+| `ReadOnlyShellBackend` | read + execute (NO write)              | Verification agents   |
+| `LocalShellBackend`    | **FULL ACCESS** (read, write, execute) | Implementation agents |
 
 When a read-only agent attempts to write, it receives an error response rather than silently succeeding.
 
-## Currently Implemented
+## State Design Rules
+
+### `[Something]State` Structure
+
+Each `[Something]State` type can ONLY contain these sub-fields:
+
+- `output` — Data produced by this node/subgraph for downstream consumers
+- `internal` — Private bookkeeping (counters, flags) not meant for other nodes
+- `input` — **Discouraged.** Only use when absolutely necessary (see below)
+
+**No other fields are allowed directly on the state type.** For example, `clarificationRound` must go inside `internal`, not directly on the state.
+
+```typescript
+// ✅ GOOD
+type AnswerClarificationsState = {
+  internal: NonNullable<AnswerClarificationsInternal>;
+};
+
+// ❌ BAD - field directly on state instead of in internal
+type AnswerClarificationsState = {
+  clarificationRound: NonNullable<number>; // WRONG - must be in internal
+};
+```
+
+### Prefer `output` Over `input` for Data Handoff
+
+**Prefer reading upstream `output` rather than having dedicated `input` fields.** Instead of a node writing to the next node's `input`, the next node should read from the previous node's `output` directly.
+
+```typescript
+// ✅ PREFERRED - read from upstream output directly
+function answerClarificationsNode(state: MainPipelineState) {
+  const questions = state.prdAnalyzerState.output.questions;
+  const previousClarifications = state.prdGeneratorState.output.clarifications;
+}
+
+// ❌ DISCOURAGED - dedicated input set by previous node
+function answerClarificationsNode(state: MainPipelineState) {
+  const questions = state.answerClarificationsState.input.questions;
+}
+```
+
+**Exception:** `input` is acceptable when a node genuinely needs accumulated/transformed data that doesn't belong in any upstream output (e.g., `prdGeneratorState.input.clarifications` which accumulates across rounds).
+
+## State Access Rules for Subgraphs and Nodes
+
+**CRITICAL: These rules govern how nodes/subgraphs in the main pipeline access state.**
+
+Each node or subgraph in the main pipeline can only:
+
+- **Read outputs** of its **direct upstream neighbors** — nodes/subgraphs with a direct edge leading to it. Reading from non-neighbors is forbidden, even if the data exists in state.
+- **Access its own state**: `internal` is read/write, `output` is read/write.
+- **Write downstream inputs** only when `input` is truly needed (see above — prefer output).
+
+In practice this means:
+
+- A subgraph's **process** node writes its own `output` (which the next direct neighbor reads).
+- A subgraph reads upstream `output` fields only from its **direct predecessor** in the graph.
+- The main pipeline never has "bridge" nodes — data handoff happens via outputs.
+- **Pass-through pattern**: If a downstream node needs data that originated further upstream, each intermediate node must include that data in its own `output`. For example, the analyzer passes the PRD through in `prdAnalyzerState.output.prd` so the planner (its direct downstream neighbor) can read it without reaching back to `prdGeneratorState`.
+
+These rules are not enforced by the codebase but are critical for maintaining clear data flow and avoiding bugs so it is up to you to strictly follow them. Always follow them when creating new subgraphs or nodes.
+
+### What this means in code
+
+```typescript
+// In answerClarifications node:
+// ✅ Read upstream outputs
+const questions = state.prdAnalyzerState.output.questions;
+const clarifications = state.prdGeneratorState.output.clarifications;
+
+// ✅ Write own output and internal
+state.answerClarificationsState.output = { clarifications: allClarifications };
+state.answerClarificationsState.internal.clarificationRound++;
+
+// ✅ Write downstream input (only when input is necessary)
+state.prdGeneratorState.input.clarifications = allClarifications;
+
+// ❌ WRONG: reading own input when you can read upstream output
+state.answerClarificationsState.input.questions;
+
+// ❌ WRONG: creating bridge nodes in main pipeline for data transfer
+```
+
+### The one shared exception: `invokeAgentState`
+
+`invokeAgentState` is a shared scratchpad used by all invoke-agent subgraphs. Each agent's setup node writes to `invokeAgentState.input`, the invoke subgraph writes to `invokeAgentState.output`, and the process node reads from `invokeAgentState.output`. This is overwritten on every invocation — it does not accumulate.
+
+## Main Pipeline Flow
+
+```mermaid
+flowchart TD
+    START(["__start__"]) --> prdGenGraph
+
+    subgraph prdGenGraph ["prdGeneratorGraph"]
+        direction TB
+        genSetup["setup"] --> genInvoke["invokePrdGenerator"] --> genProcess["process"] --> genEnd["__end__"]
+    end
+
+    prdGenGraph --> prdAnalyzeGraph
+
+    subgraph prdAnalyzeGraph ["prdAnalyzerGraph"]
+        direction TB
+        analyzeSetup["setup"] --> analyzeInvoke["invokeAnalyzer"] --> analyzeProcess["processAnalysis"] --> analyzeEnd["__end__"]
+    end
+
+    prdAnalyzeGraph --> router{"routeAfterAnalyzer<br/>needsClarification?<br/>round < 5?"}
+
+    router -->|Yes| answerClarif["answerClarificationsNode<br/>Langgraph.interrupt"]
+    router -->|No / limit reached| plannerSubgraph
+
+    answerClarif -->|Human resumes| prdGenGraph
+
+    subgraph plannerSubgraph ["plannerGraph"]
+        direction TB
+        planSetup["setup"] --> planInvoke["invokePlanner"] --> planProcess["processPlanning"] --> planEnd["__end__"]
+    end
+
+    plannerSubgraph --> controller["controllerNode"]
+
+    controller --> routeCtrl{"routeAfterController<br/>allTasksDone?"}
+
+    routeCtrl -->|No| implGraph
+
+    subgraph implGraph ["implementerGraph"]
+        direction TB
+        implSetup["setup"] --> implInvoke["invokeImplementer"] --> implProcess["processImplementation"] --> implEnd["__end__"]
+    end
+
+    implGraph --> builder["builderNode<br/>runs build command"]
+
+    builder --> routeBuild{"routeAfterBuilder<br/>build success?"}
+
+    routeBuild -->|Yes| verGraph
+
+    subgraph verGraph ["verifierGraph"]
+        direction TB
+        verSetup["setup"] --> verInvoke["invokeVerifier"] --> verProcess["processVerification"] --> verEnd["__end__"]
+    end
+
+    verGraph --> controller
+
+    routeBuild -->|No| controller
+
+    routeCtrl -->|Yes| finalGraph
+
+    subgraph finalGraph ["finalVerifierGraph"]
+        direction TB
+        fvSetup["setup"] --> fvInvoke["invokeFinalVerifier"] --> fvProcess["processFinalVerification"] --> fvEnd["__end__"]
+    end
+
+    finalGraph --> END(["__end__"])
+
+    style prdGenGraph fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    style prdAnalyzeGraph fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style answerClarif fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style plannerSubgraph fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+    style controller fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style implGraph fill:#fce4ec,stroke:#c62828,stroke-width:2px
+    style builder fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style verGraph fill:#e8eaf6,stroke:#283593,stroke-width:2px
+    style finalGraph fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    style START fill:#c8e6c9,stroke:#1b5e20,stroke-width:2px
+    style END fill:#ffcdd2,stroke:#b71c1c,stroke-width:2px
+```
+
+- **Max clarification rounds**: 5 (hardcoded)
+- **`answerClarificationsNode`** uses `Langgraph.interrupt()` to pause and present questions to human
+- Human resumes with `Command({ resume: ["answer1", "answer2", ...] })`
+- The interrupt node is a **direct node in the main pipeline**, not inside any subgraph
+- **Implementation cycle**: controller → implementer → builder → verifier → controller (loops per task)
+- **Builder retry limit**: 7 per task (correction implementer → builder loop)
+- **Verifier retry limit**: 7 per task (correction implementer → builder → verifier loop)
+- **Final verifier** runs once after all tasks complete — does NOT loop
+
+## Currently Implemented Agents
 
 ### PRD Generator Agent
 
 - **Purpose**: Generates a Product Requirements Document from a task description
 - **Backend**: `ReadOnlyBackend` (read-only filesystem access)
-- **Zod Schema**: Validates `precision` (0-100) and `prd` (min 100 chars)
-- **System Prompt**: Instructions to analyze codebase using tools, incorporate clarifications, generate PRD with sections: Overview, Requirements, Acceptance Criteria, Constraints, Out of Scope
+- **Subgraph flow**: setup → invokePrdGenerator → process → `__end__`
+- **Zod Schema**: Validates `precision` (0-100) and `prd` (string)
+- **process node**: Writes `prdGeneratorState.output` with the PRD and clarifications
 
-### Main Pipeline
+### PRD Analyzer Agent
 
-- **Input**: `assignment` (task description) + `projectDir` (target project path)
-- **Current Flow**: `__start__` → `prdGeneratorGraph` → `__end__`
-- **Checkpointing**: Uses `MemorySaver` for in-memory state persistence
-- **Exports**: Both compiled `graph` and uncompiled `graphBuilder`
+- **Purpose**: Analyzes a PRD to determine if clarifications are needed
+- **Backend**: `ReadOnlyBackend` (read-only filesystem access)
+- **Subgraph flow**: setup → invokeAnalyzer → processAnalysis → `__end__`
+- **Zod Schema**: Validates `needsClarification` (boolean), `questions` (string[]), `confidence` (1-10), `reasoning` (string)
+- **Output**: Writes `prdAnalyzerState.output` with analysis result plus pass-through of `prd` and `clarifications`
+- **Pass-through**: The `processAnalysis` node copies `prdGeneratorState.output.prd` and `prdGeneratorState.output.clarifications` into its own output so downstream neighbors don't need to reach back to the generator
+- **Does NOT handle human interaction** — that's the main pipeline's job
+
+### answerClarificationsNode (Main Pipeline Node)
+
+- **Purpose**: Presents analyzer questions to human and collects answers
+- **Location**: `src/nodes/answer-clarifications/answer-clarifications-node.ts`
+- **Mechanism**: `Langgraph.interrupt(questions)` pauses execution; human resumes with `Command({ resume: answers })`
+- **Reads**: `prdAnalyzerState.output` (questions), `prdGeneratorState.output` (previous clarifications)
+- **Writes**: own `internal.clarificationRound`, `prdGeneratorState.input.clarifications` (downstream feed-input)
+- **Uses one question type** throughout the cycle: `ClarifyingQuestion = { question, answer }`. The analyzer outputs plain `string[]` questions, and `answerClarificationsNode` pairs them with human answers into `ClarifyingQuestion[]`.
+
+### Planner Agent
+
+- **Purpose**: Divides the finalized PRD into sequential implementation tasks and determines the build command
+- **Backend**: `ReadOnlyShellBackend` (read + execute, no write)
+- **Subgraph flow**: setup → invokePlanner → processPlanning → `__end__`
+- **Zod Schema**: Validates `tasks` — array of `{ title, description, relevantFiles }`, plus `buildCommand` (string)
+- **Reads**: `prdAnalyzerState.output.prd`, `prdAnalyzerState.output.clarifications`, `state.assignment`, `state.buildCommand`
+- **Output**: Writes `plannerState.output` with ordered tasks list and the build command
+- **Build command**: If the user provides `buildCommand` in the pipeline input, the planner uses it. Otherwise, the planner determines the appropriate command by analyzing the codebase
+- **Runs after**: The clarification cycle ends (when analyzer says no more clarifications needed, or round limit reached)
+
+### controllerNode (Main Pipeline Node — No LLM)
+
+- **Purpose**: Iterates through the planner's task list sequentially, orchestrating the implementer → builder → verifier cycle for each task
+- **Location**: `src/nodes/controller/controller-node.ts`
+- **No LLM**: Pure deterministic logic — no agent invocation
+- **Reads**: `plannerState.output` (tasks, buildCommand), `builderState.output` (build result), `verifierState.output` (verification result), `prdAnalyzerState.output.prd`
+- **Writes**: `controllerState.output` (current task info for implementer), `controllerState.internal` (task index, attempt counters), clears `builderState.output` and `verifierState.output` after processing
+- **Routing**: Routes to `implementerGraph` (has remaining tasks) or `finalVerifierGraph` (all tasks done)
+- **Retry tracking**: Tracks `builderAttempts` (max 7 per task) and `verifierAttempts` (max 7 per task), both reset when advancing to the next task. Throws an error to stop the pipeline if limits are exceeded
+
+### Implementer Agent
+
+- **Purpose**: Implements code changes for a single task. The ONLY agent with full write access
+- **Backend**: `LocalShellBackend` (FULL ACCESS — read, write, execute)
+- **Subgraph flow**: setup → invokeImplementer → processImplementation → `__end__`
+- **Zod Schema**: Validates `summary` (string)
+- **Setup**: Reads `controllerState.output` to determine whether this is an initial implementation or a correction run. Constructs different user messages for each case
+- **Initial run**: Receives task description, build command, full PRD, and a summary of all tasks in the plan
+- **Correction run**: Receives original task description, the error (build failure or verification failure), and instruction to fix. Fresh session with no prior context
+- **Prompt guidance**: System prompt encourages the implementer to run the build command itself
+
+### builderNode (Main Pipeline Node — No LLM)
+
+- **Purpose**: Runs the build command and checks the exit code
+- **Location**: `src/nodes/builder/builder-node.ts`
+- **No LLM**: Pure shell execution — runs `plannerState.output.buildCommand` in `state.projectDir`
+- **Writes**: `builderState.output` with `{ success, errorOutput }`
+- **Error truncation**: Build error output is truncated to 4000 characters (keeping the tail) before storing
+- **Timeout**: 5-minute timeout for build commands
+- **Routing**: On success → `verifierGraph`. On failure → `controllerNode` (for correction)
+
+### Verifier Agent
+
+- **Purpose**: Verifies that the implementation satisfies the current task requirements
+- **Backend**: `ReadOnlyShellBackend` (read + execute, no write)
+- **Subgraph flow**: setup → invokeVerifier → processVerification → `__end__`
+- **Zod Schema**: Validates `success` (boolean) and `failureDescription` (string | null)
+- **Reads**: `controllerState.output` (current task info, PRD)
+- **Always routes to**: `controllerNode` — the controller decides whether to advance, correct, or throw
+- **On success**: Controller advances to the next task
+- **On failure**: Controller sets up a correction implementer (fresh session) which goes through the full builder → verifier cycle again
+
+### Final Verifier Agent
+
+- **Purpose**: Holistically verifies the entire implementation after ALL tasks are completed
+- **Backend**: `ReadOnlyShellBackend` (read + execute, no write)
+- **Subgraph flow**: setup → invokeFinalVerifier → processFinalVerification → `__end__`
+- **Zod Schema**: Validates `success` (boolean), `problems` (string[]), `suggestedFollowUpPrompt` (string | null)
+- **Reads**: `prdAnalyzerState.output.prd`, `state.assignment`, `prdGeneratorState.output.clarifications`
+- **On success**: Pipeline ends with success
+- **On failure**: Pipeline ends with a list of problems and a suggested follow-up prompt. Does NOT execute fixes — user must initiate a new run
 
 ## Core Data Models
 
-### ClarifyingQuestion
+### ClarifyingQuestion (single type used throughout the cycle)
 
 ```typescript
 type ClarifyingQuestion = {
@@ -148,12 +453,12 @@ type ClarifyingQuestion = {
 type ClarifyingQuestions = Array<ClarifyingQuestion>;
 ```
 
-### InvokeAgentState
+### InvokeAgentState (shared scratchpad)
 
 ```typescript
 type InvokeAgentState = {
-  input: InvokeAgentInput;    // { conversationHistory, userMessage }
-  output: InvokeAgentOutput;  // { result: ZodObject output }
+  input: InvokeAgentInput; // { conversationHistory, userMessage }
+  output: InvokeAgentOutput; // { result: ZodObject output }
   internal: InvokeAgentInternal; // { succeeded, errorMessage, attempt counters }
 };
 ```
@@ -162,8 +467,133 @@ type InvokeAgentState = {
 
 ```typescript
 type PrdGeneratorState = {
-  input: PrdGeneratorInput;   // { assignment, clarifications }
+  input: PrdGeneratorInput; // { clarifications }
   output: PrdGeneratorOutput; // { prd, clarifications }
+};
+```
+
+### PrdAnalyzerState
+
+```typescript
+type PrdAnalyzerAgentResult = {
+  needsClarification: boolean;
+  questions: Array<string>;
+  confidence: number;
+  reasoning: string;
+};
+
+type PrdAnalyzerOutput = PrdAnalyzerAgentResult & {
+  prd: string; // pass-through from prdGeneratorState.output.prd
+  clarifications: ClarifyingQuestions | null | undefined; // pass-through
+};
+
+type PrdAnalyzerState = {
+  output: PrdAnalyzerOutput | null;
+};
+```
+
+### AnswerClarificationsState
+
+```typescript
+type AnswerClarificationsState = {
+  internal: AnswerClarificationsInternal; // { clarificationRound }
+};
+```
+
+### PlannerState
+
+```typescript
+type PlannerTask = {
+  title: string;
+  description: string;
+  relevantFiles: Array<string>;
+};
+
+type PlannerOutput = {
+  tasks: Array<PlannerTask>;
+  buildCommand: string;
+};
+
+type PlannerState = {
+  output: PlannerOutput | null;
+};
+```
+
+### ControllerState
+
+```typescript
+type ControllerOutput = {
+  currentTaskIndex: number;
+  currentTask: PlannerTask;
+  buildCommand: string;
+  prd: string;
+  allTasksSummary: string;
+  isCorrection: boolean;
+  correctionError: string | null | undefined;
+};
+
+type ControllerInternal = {
+  currentTaskIndex: number;
+  builderAttempts: number;
+  verifierAttempts: number;
+  allTasksDone: boolean;
+};
+
+type ControllerState = {
+  output: ControllerOutput | null;
+  internal: ControllerInternal;
+};
+```
+
+### ImplementerState
+
+```typescript
+type ImplementerOutput = {
+  summary: string;
+};
+
+type ImplementerState = {
+  output: ImplementerOutput | null;
+};
+```
+
+### BuilderState
+
+```typescript
+type BuilderOutput = {
+  success: boolean;
+  errorOutput: string | null | undefined;
+};
+
+type BuilderState = {
+  output: BuilderOutput | null;
+};
+```
+
+### VerifierState
+
+```typescript
+type VerifierOutput = {
+  success: boolean;
+  failureDescription: string | null | undefined;
+};
+
+type VerifierState = {
+  output: VerifierOutput | null;
+};
+```
+
+### FinalVerifierState
+
+```typescript
+type FinalVerifierOutput = {
+  success: boolean;
+  problems: Array<string>;
+  suggestedFollowUpPrompt: string | null | undefined;
+};
+
+type FinalVerifierState = {
+  output: FinalVerifierOutput | null;
 };
 ```
 
@@ -177,6 +607,184 @@ type PrdGeneratorState = {
 - **`geminiFlashLLMMedium`**: Singleton Gemini Flash model (temp 0.5)
 - **`AnnotationRoot`**: Type alias for LangGraph `Annotation.Root` return type
 
+## Creating a New Subgraph Agent
+
+Follow this guide to create a new agent subgraph without looking at example code.
+
+### Step 1: Define State Types
+
+Create `src/agents/[agent-name]/[agent-name]-types.ts`:
+
+```typescript
+export type MyAgentOutput = {
+  result: NonNullable<string>;
+  confidence: NonNullable<number>;
+};
+
+export type MyAgentState = {
+  output: MyAgentOutput | null | undefined;
+  // If internal bookkeeping is needed:
+  // internal: NonNullable<MyAgentInternal>;
+};
+```
+
+**Rules:**
+
+- No `input` field — read upstream outputs directly (state access rules)
+- `output` is nullable (initially null before agent runs)
+- Internal bookkeeping (counters, flags) goes in `internal`, never directly on the state
+- Only `output`, `internal`, and (rarely) `input` are allowed as fields on a `[Something]State`
+
+### Step 2: Create Zod Schema for LLM Output
+
+In the same file or in the graph file:
+
+```typescript
+export const myAgentOutputSchema = Zod.z.object({
+  result: Zod.z.string().describe("The agent result"),
+  confidence: Zod.z.number().min(0).max(10).describe("Confidence 0-10"),
+});
+```
+
+### Step 3: Create the Subgraph
+
+Create `src/agents/[agent-name]/[agent-name]-graph.ts`:
+
+```typescript
+import * as Langgraph from "@langchain/langgraph";
+import { type MainPipelineState } from "../../main-pipeline-graph/main-pipeline-types";
+import * as MainPipelineAnnotations from "../../main-pipeline-graph/main-pipeline-annotations";
+import * as InvokeAgentGraphFactory from "../../invoke-agent-graph/invoke-agent-graph-factory";
+import * as ReadOnlyBackend from "../../backends/read-only-backend";
+import * as GeminiFlashModel from "../../shared/gemini-flash-model";
+import { type InvokeAgentOutput } from "../../invoke-agent-graph/invoke-agent-types";
+import { myAgentOutputSchema, type MyAgentOutput } from "./my-agent-types";
+
+const systemPrompt: NonNullable<string> = `Your role is to...`;
+
+const invokeGraph = InvokeAgentGraphFactory.createInvokeAgentGraph(
+  ReadOnlyBackend.ReadOnlyBackend,
+  GeminiFlashModel.geminiFlashLLMMedium,
+  systemPrompt,
+  myAgentOutputSchema,
+  3, // maxInSessionAttempts
+  3 // maxSessionAttempts
+);
+
+// Node 1: setup - reads upstream outputs, constructs user message
+function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainPipelineState>> {
+  // Read ONLY upstream outputs (not inputs, not internal state)
+  const upstreamData: NonNullable<string> = state.prdGeneratorState.output.prd;
+
+  const message: NonNullable<string> = `Analyze the data: ${upstreamData}`;
+
+  // Write to invokeAgentState (shared scratchpad)
+  state.invokeAgentState.input = {
+    conversationHistory: null,
+    userMessage: message,
+  };
+
+  const update: NonNullable<Partial<MainPipelineState>> = { invokeAgentState: state.invokeAgentState };
+  return update;
+}
+
+// Node 2: process - reads agent output, writes own output
+function process(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainPipelineState>> {
+  const invokeAgentOutput: NonNullable<InvokeAgentOutput> =
+    state.invokeAgentState.output ??
+    (() => {
+      throw new Error("Invoke agent output is null or undefined");
+    })();
+
+  const parsed: NonNullable<MyAgentOutput> = myAgentOutputSchema.parse(invokeAgentOutput.result);
+
+  // Write own output (downstream nodes read this directly)
+  state.myAgentState.output = parsed;
+
+  const update: NonNullable<Partial<MainPipelineState>> = {
+    myAgentState: state.myAgentState,
+  };
+  return update;
+}
+
+// Compile the subgraph
+export const myAgentGraph = new Langgraph.StateGraph({
+  stateSchema: MainPipelineAnnotations.mainPipelineStateAnnotation,
+})
+  .addNode("setup", setup)
+  .addNode("invokeGraph", invokeGraph)
+  .addNode("process", process)
+  .addEdge("__start__", "setup")
+  .addEdge("setup", "invokeGraph")
+  .addEdge("invokeGraph", "process")
+  .addEdge("process", "__end__")
+  .compile();
+```
+
+### Step 4: Register in Main Pipeline Annotations
+
+Update `src/main-pipeline-graph/main-pipeline-annotations.ts`:
+
+```typescript
+import { type MyAgentState } from "../agents/my-agent/my-agent-types";
+
+export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({
+  ...mainPipelineInputAnnotation.spec,
+  invokeAgentState: Langgraph.Annotation<InvokeAgentState>(),
+  myAgentState: Langgraph.Annotation<MyAgentState>(),
+  // ... other states
+});
+```
+
+### Step 5: Add to Main Pipeline Graph
+
+Update `src/main-pipeline-graph/main-pipeline-graph.ts`:
+
+```typescript
+import * as MyAgentGraph from "../agents/my-agent/my-agent-graph";
+
+const graphBuilder = new Langgraph.StateGraph({...})
+  .addNode("myAgentGraph", MyAgentGraph.myAgentGraph)
+  .addEdge("prdAnalyzerGraph", "myAgentGraph")
+  .addEdge("myAgentGraph", "__end__")
+  // or add conditional routing if needed
+  .addConditionalEdges("myAgentGraph", routeFunction, ["nextNode", "__end__"]);
+```
+
+### Step 6: Register in langgraph.json
+
+Add to `langgraph.json`:
+
+```json
+{
+  "graphs": {
+    "myAgent": "./src/agents/my-agent/my-agent-graph.ts:myAgentGraph"
+  }
+}
+```
+
+### Data Flow Pattern
+
+```
+Upstream.output → [setup node] → invokeAgentState.input
+                                       ↓
+                              [invokeGraph subgraph]
+                                       ↓
+                                invokeAgentState.output
+                                       ↓
+                               [process node] → myAgentState.output
+                                                  (downstream reads this directly)
+```
+
+**Key Rules:**
+
+- **setup**: Read upstream outputs, write `invokeAgentState.input`
+- **invokeGraph**: LLM call (auto-provided, don't write this)
+- **process**: Parse `invokeAgentState.output`, write own output
+- Downstream nodes read your `output` directly — no need to write their `input`
+- Never write to upstream state
+- Never read upstream input or internal state
+
 ## Running the Project
 
 ### Development Server (LangGraph Studio)
@@ -186,6 +794,10 @@ npm run dev
 ```
 
 Opens LangGraph Studio at `http://localhost:8123`.
+
+### Debug Entry Point
+
+`src/debug-entry.ts` provides a standalone entry point for VSCode debugging. Launch config "Debug Pipeline" in `.vscode/launch.json` runs it with `tsx`.
 
 ### Environment Variables
 
@@ -351,17 +963,18 @@ import { type SomeType } from "./types.js";
 
 All control structures (if, else, for, while, etc.) must use brackets, even for single-line bodies.
 
-## Agents Planned for Future Implementation
+## New Global Input: buildCommand
 
-The following agents existed in the previous architecture and will be re-added as modular subgraphs:
+The main pipeline input annotation includes an optional `buildCommand` field:
 
-- **PRD Analyzer** — Analyzes PRD for gaps (interactive mode)
-- **Business Analyzer** — Analyzes PRD for business gaps (autonomous mode)
-- **Clarification Answerer** — Answers technical questions from analyzers
-- **Planner** — Divides PRD into sequential assignments
-- **Microplanner** — Creates step-by-step implementation plans
-- **Implementer** — Writes actual code (only agent with full write access)
-- **Verifier** — Verifies each assignment's implementation
-- **Final Verifier** — Final verification against full PRD
+```typescript
+export const mainPipelineInputAnnotation = Langgraph.Annotation.Root({
+  assignment: Langgraph.Annotation<string>(),
+  projectDir: Langgraph.Annotation<string>(),
+  buildCommand: Langgraph.Annotation<string | null | undefined>(),
+});
+```
+
+If `buildCommand` is provided by the user, the planner uses it directly. If null/undefined, the planner determines the appropriate build command by analyzing the codebase.
 
 </context>

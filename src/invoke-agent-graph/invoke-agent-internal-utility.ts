@@ -30,7 +30,7 @@ export async function invokeAgent(
       ...(SharedUtility.isNotNullOrEmpty(systemPrompt) && {
         systemPrompt: systemPrompt,
       }),
-      responseFormat: Langchain.providerStrategy(responseZod),
+      responseFormat: Langchain.toolStrategy(responseZod),
     });
 
     const agentInvocationResult = await agentToInvoke.invoke({ messages });

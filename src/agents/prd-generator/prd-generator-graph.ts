@@ -15,7 +15,7 @@ export const prdGeneratorAgentOutputSchema = z.object({
     .min(0)
     .max(100)
     .describe(
-      "In %, how much of the PRD content is directly specified or directly implied by the assignment or the answers to the clarifying questions. In other words, how much of the PRD content is not guessed or is not filled gaps."
+      "Self-assessment: what percentage of the PRD content was EXPLICITLY stated or DIRECTLY implied by the user's assignment and clarification answers, versus decided by you to fill gaps? Filling gaps is expected and good — but be honest about how much you filled. If the user said 'todo app in React' and you decided on localStorage, styling approach, specific UX flows — those are your decisions, not the user's. A vague one-sentence assignment with no clarifications should score low (e.g. 10-30%) because most decisions were yours."
     ),
 
   prd: z.string().describe("The PRD"),
@@ -89,11 +89,17 @@ function process(state: NonNullable<MainPipelineState>): NonNullable<Partial<Mai
     (() => {
       throw new Error("Invoke agent output is null or undefined");
     })();
+
+  const prd: NonNullable<string> = prdGeneratorAgentOutputSchema.parse(invokeAgentOutput.result).prd;
+
   state.prdGeneratorState.output = {
-    prd: prdGeneratorAgentOutputSchema.parse(invokeAgentOutput.result).prd,
-    clarifications: state.prdGeneratorState.output.clarifications,
+    prd: prd,
+    clarifications: state.prdGeneratorState.input.clarifications,
   };
-  const update: NonNullable<Partial<MainPipelineState>> = { prdGeneratorState: state.prdGeneratorState };
+
+  const update: NonNullable<Partial<MainPipelineState>> = {
+    prdGeneratorState: state.prdGeneratorState,
+  };
   return update;
 }
 

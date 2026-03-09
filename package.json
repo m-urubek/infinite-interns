@@ -34,6 +34,7 @@
     "eslint": "^9.0.0",
     "eslint-formatter-compact": "^9.0.1",
     "namespace-import-plugin": "file:ts-plugins/namespace-import-plugin",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"
   }

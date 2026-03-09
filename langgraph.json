@@ -2,7 +2,12 @@
   "node_version": "20",
   "graphs": {
     "pipeline": "./src/main-pipeline-graph/main-pipeline-graph.ts:graph",
-    "prdGenerator": "./src/agents/prd-generator/prd-generator-graph.ts:prdGeneratorGraph"
+    "prdGenerator": "./src/agents/prd-generator/prd-generator-graph.ts:prdGeneratorGraph",
+    "prdAnalyzer": "./src/agents/prd-analyzer/prd-analyzer-graph.ts:prdAnalyzerGraph",
+    "planner": "./src/agents/planner/planner-graph.ts:plannerGraph",
+    "implementer": "./src/agents/implementer/implementer-graph.ts:implementerGraph",
+    "verifier": "./src/agents/verifier/verifier-graph.ts:verifierGraph",
+    "finalVerifier": "./src/agents/final-verifier/final-verifier-graph.ts:finalVerifierGraph"
   },
   "env": ".env"
 }

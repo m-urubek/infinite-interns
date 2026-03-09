@@ -70,7 +70,7 @@ export function createInvokeAgentGraph(
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     while (true) {
       messages.push({
-        role: "system",
+        role: "user",
         content:
           "A problem occurred while processing your response. Do appropriate correction and try again. Details about the problem: " +
           (internalState.errorMessage ??
@@ -115,6 +115,7 @@ export function createInvokeAgentGraph(
           );
         }
 
+        messages.length = 0;
         messages.push({ role: "user", content: input.userMessage });
       }
     }

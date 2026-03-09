@@ -6,7 +6,6 @@ export type PrdGeneratorState = {
 };
 
 export type PrdGeneratorInput = {
-  assignment: NonNullable<string>;
   clarifications: ClarifyingQuestions | null | undefined;
 };
 
