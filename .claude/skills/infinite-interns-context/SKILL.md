@@ -1,13 +1,13 @@
 <context>
 Every time you add some new feature or logical unit, write it down to this file - .claude/skills/orchestration-tools-context/SKILL.md
 
-# Orchestration Tools - Technical Summary
+# Infinite Interns - Technical Summary
 
 > This document provides technical context for AI agents working on this codebase.
 
 ## Project Overview
 
-Orchestration Tools is a LangChain-based autonomous software development pipeline. It uses LangGraph to orchestrate specialized AI agents that collaborate to implement features from a task description. The project is in active development — the architecture has been modularized into composable subgraphs.
+Infinite Interns is a LangChain-based autonomous software development pipeline. It uses LangGraph to orchestrate specialized AI agents that collaborate to implement features from a task description. The project is in active development — the architecture has been modularized into composable subgraphs.
 
 **Key Architecture Note:** The system uses the `deepagents` npm package from LangChain, which provides built-in filesystem tools, planning capabilities, and subagent support. Agents use custom wrapper backends (`ReadOnlyBackend`, `ReadOnlyShellBackend`) to enforce permission boundaries.
 
@@ -40,6 +40,7 @@ Always use `Langchain.toolStrategy(zodSchema)` for structured output, NOT `provi
 ## Project Structure
 
 **Monorepo Layout** (as of March 2026):
+
 ```
 infinite-interns/                    # Monorepo root
 ├── packages/
@@ -881,6 +882,7 @@ npm run preview # Preview production build
 ### Environment Variables
 
 Backend environment (set in `packages/backend/.env`):
+
 ```env
 GOOGLE_API_KEY=your-google-api-key
 LANGSMITH_API_KEY=your-langsmith-key  # Optional, for tracing
@@ -1057,9 +1059,11 @@ export const mainPipelineInputAnnotation = Langgraph.Annotation.Root({
 ```
 
 ### buildCommand
+
 If `buildCommand` is provided by the user, the planner uses it directly. If null/undefined, the planner determines the appropriate build command by analyzing the codebase.
 
 ### finalVerifierEnabled
+
 Controls whether the final verifier agent runs after all tasks complete. If `false`, the pipeline skips the final verifier and goes directly to `__end__`. If `true`, the final verifier agent runs holistically to verify the entire implementation. User must set this before launching the pipeline (required boolean field).
 
 ## Unit Testing
