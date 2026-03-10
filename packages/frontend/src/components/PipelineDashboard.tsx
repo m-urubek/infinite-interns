@@ -1,22 +1,33 @@
-import { usePipeline } from '../hooks/usePipeline';
+import type { PipelinePhase, PipelineInput } from '../hooks/usePipeline';
 import { GlowContainer } from './GlowContainer';
 import { PipelineForm } from './PipelineForm';
 import { ClarificationPanel } from './ClarificationPanel';
 import { ThreadList } from './ThreadList';
 import { Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
-export function PipelineDashboard() {
-  const {
-    phase,
-    values,
-    error,
-    currentQuestions,
-    threadId,
-    launchPipeline,
-    submitAnswers,
-    attachToThread,
-    reset,
-  } = usePipeline();
+type PipelineDashboardProps = {
+  phase: PipelinePhase;
+  values: Record<string, unknown> | undefined;
+  error: Error | null | undefined;
+  currentQuestions: string[];
+  threadId: string | null;
+  launchPipeline: (input: PipelineInput) => void;
+  submitAnswers: (answers: string[]) => void;
+  attachToThread: (threadId: string) => void;
+  reset: () => void;
+};
+
+export function PipelineDashboard({
+  phase,
+  values,
+  error,
+  currentQuestions,
+  threadId,
+  launchPipeline,
+  submitAnswers,
+  attachToThread,
+  reset,
+}: PipelineDashboardProps) {
 
   if (phase === 'idle') {
     return (
@@ -62,7 +73,7 @@ export function PipelineDashboard() {
   }
 
   if (phase === 'complete') {
-    const finalOutput = (values as Record<string, unknown>)?.finalVerifierState as
+    const finalOutput = values?.finalVerifierState as
       | { output: { success: boolean; problems: string[]; suggestedFollowUpPrompt: string | null } | null }
       | undefined;
     const result = finalOutput?.output;

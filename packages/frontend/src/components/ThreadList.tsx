@@ -1,16 +1,16 @@
-import { useThreads } from '../hooks/useThreads';
-import type { ThreadSummary } from '../hooks/useThreads';
-import { RefreshCw, Loader2, Plug, AlertCircle } from 'lucide-react';
+import { useThreads } from "../hooks/useThreads";
+import type { ThreadSummary } from "../hooks/useThreads";
+import { RefreshCw, Loader2, Plug, AlertCircle } from "lucide-react";
 
 interface ThreadListProps {
   onAttach: (threadId: string) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  idle: 'bg-white/20 text-white/70',
-  busy: 'bg-tertiary/30 text-tertiary',
-  interrupted: 'bg-amber-500/30 text-amber-300',
-  error: 'bg-red-500/30 text-red-300',
+  idle: "bg-white/20 text-white/70",
+  busy: "bg-tertiary/30 text-tertiary",
+  interrupted: "bg-amber-500/30 text-amber-300",
+  error: "bg-red-500/30 text-red-300",
 };
 
 function formatDate(iso: string): string {
@@ -19,7 +19,7 @@ function formatDate(iso: string): string {
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
 
-  if (diffMins < 1) return 'just now';
+  if (diffMins < 1) return "just now";
   if (diffMins < 60) return `${diffMins}m ago`;
 
   const diffHours = Math.floor(diffMins / 60);
@@ -28,31 +28,27 @@ function formatDate(iso: string): string {
   const diffDays = Math.floor(diffHours / 24);
   if (diffDays < 7) return `${diffDays}d ago`;
 
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
-  return text.slice(0, max) + '...';
+  return text.slice(0, max) + "...";
 }
 
 function ThreadRow({ thread, onAttach }: { thread: ThreadSummary; onAttach: (id: string) => void }) {
   const statusColor = STATUS_COLORS[thread.status] ?? STATUS_COLORS.idle;
-  const label = thread.assignment ? truncate(thread.assignment, 80) : 'No assignment';
+  const label = thread.assignment ? truncate(thread.assignment, 80) : "No assignment";
 
   return (
     <div className="thread-row group flex items-center gap-3 px-4 py-3 rounded-xl transition-all hover:bg-white/5">
       <div className="flex-1 min-w-0">
-        <p className={`text-sm ${thread.assignment ? 'text-white/80' : 'text-white/40 italic'} truncate`}>
-          {label}
-        </p>
+        <p className={`text-sm ${thread.assignment ? "text-white/80" : "text-white/40 italic"} truncate`}>{label}</p>
         <div className="flex items-center gap-2 mt-1">
           <span className={`text-[10px] font-heading font-medium uppercase px-1.5 py-0.5 rounded-md ${statusColor}`}>
             {thread.status}
           </span>
-          <span className="text-[11px] text-white/30 font-mono">
-            {formatDate(thread.updatedAt)}
-          </span>
+          <span className="text-[11px] text-white/30 font-mono">{formatDate(thread.updatedAt)}</span>
         </div>
       </div>
       <button
@@ -68,7 +64,6 @@ function ThreadRow({ thread, onAttach }: { thread: ThreadSummary; onAttach: (id:
 
 export function ThreadList({ onAttach }: ThreadListProps) {
   const { threads, isLoading, error, refresh } = useThreads();
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between px-1">
@@ -79,7 +74,7 @@ export function ThreadList({ onAttach }: ThreadListProps) {
           className="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white/70 transition-colors disabled:opacity-30"
           title="Refresh threads"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
         </button>
       </div>
 

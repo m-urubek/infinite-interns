@@ -245,6 +245,25 @@ input[type="checkbox"]:checked::after {
   animation: glow-pulse 3s ease-in-out infinite;
 }
 
+/* Pipeline tree sidebar scrollbar */
+.pipeline-sidebar::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.pipeline-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.pipeline-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(34, 211, 216, 0.15);
+  border-radius: 2px;
+}
+
+.pipeline-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 216, 0.3);
+}
+
 /* Thread list scrollbar */
 .thread-list-scroll::-webkit-scrollbar {
   width: 4px;

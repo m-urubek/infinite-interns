@@ -1,6 +1,21 @@
 {
   "permissions": {
-    "allow": ["Bash(npx eslint src/invoke-agent-graph/invoke-agent-graph.ts)", "WebSearch"],
+    "allow": [
+      "Bash(npx eslint src/invoke-agent-graph/invoke-agent-graph.ts)",
+      "WebSearch",
+      "Bash(find /home/pc/Coding/infinite-interns/packages/frontend/node_modules -name *rc-tree* -o -name *langgraph*)",
+      //"Bash(find)",
+      "Bash(head:*)",
+      // "Bash(ls)",
+      // "Bash(cat)",
+      // "Bash(grep)",
+      "WebFetch(*)",
+      "Read(*)",
+      "ReadFile(*)",
+      "WriteFile(*SKILL.md)",
+      "WriteFile(*README.md)",
+      "Bash(npx tsc:*)"
+    ],
     "additionalDirectories": ["/home/pc/Coding/infinite-interns/ts-plugins"]
   }
 }

@@ -7,9 +7,9 @@
     "packages/frontend"
   ],
   "scripts": {
-    "dev": "npm run dev -w infinite-interns-backend",
+    "dev": "npm-run-all --parallel dev:backend dev:frontend",
+    "dev:backend": "npm run dev -w infinite-interns-backend",
     "dev:frontend": "npm run dev -w infinite-interns-ui",
-    "dev:both": "npm-run-all --parallel dev dev:frontend",
     "build": "npm run build -w infinite-interns-ui && npm run build -w infinite-interns-backend",
     "lint": "npm run lint -w infinite-interns-backend",
     "ts": "npm run ts -w infinite-interns-backend",

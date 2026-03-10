@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { Client } from '@langchain/langgraph-sdk';
-import type { Thread, ThreadStatus } from '@langchain/langgraph-sdk';
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Client } from "@langchain/langgraph-sdk";
+import type { Thread, ThreadStatus } from "@langchain/langgraph-sdk";
 
 export type ThreadSummary = {
   threadId: string;
@@ -17,7 +17,7 @@ export function useThreads() {
   const clientRef = useRef<Client | null>(null);
 
   if (!clientRef.current) {
-    clientRef.current = new Client({ apiUrl: 'http://localhost:2024' });
+    clientRef.current = new Client({ apiUrl: "http://localhost:2024" });
   }
 
   const fetchThreads = useCallback(async () => {
@@ -26,8 +26,8 @@ export function useThreads() {
     try {
       const results: Thread[] = await clientRef.current!.threads.search({
         limit: 30,
-        sortBy: 'updated_at',
-        sortOrder: 'desc',
+        sortBy: "updated_at",
+        sortOrder: "desc",
       });
 
       const summaries: ThreadSummary[] = results.map((t) => ({
@@ -40,7 +40,7 @@ export function useThreads() {
 
       setThreads(summaries);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch threads';
+      const message = err instanceof Error ? err.message : "Failed to fetch threads";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -60,9 +60,9 @@ export function useThreads() {
 }
 
 function extractAssignment(values: unknown): string | null {
-  if (values && typeof values === 'object' && 'assignment' in values) {
+  if (values && typeof values === "object" && "assignment" in values) {
     const assignment = (values as Record<string, unknown>).assignment;
-    if (typeof assignment === 'string' && assignment.length > 0) {
+    if (typeof assignment === "string" && assignment.length > 0) {
       return assignment;
     }
   }
