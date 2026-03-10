@@ -100,6 +100,7 @@ The pipeline automates feature implementation in two main phases:
 ### Parallel execution
 
 **Launch the implementation loops in parallel to complete the PRD implementation faster**
+
 Each loop is going to get it's own git worktree and implements the changes in a branch. After all loops finish, a merger agent is going to merge all changes. This will also require launching implementations in "waves" as certain tasks might be dependant on other tasks to be completed first.
 
 ## Quick Start
