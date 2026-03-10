@@ -1228,12 +1228,14 @@ frontend/
     ├── index.css            # Dark theme, glow effects, form styles
     ├── vite-env.d.ts
     ├── hooks/
-    │   └── usePipeline.ts   # Core hook wrapping useStream
+    │   ├── usePipeline.ts   # Core hook wrapping useStream
+    │   └── useThreads.ts    # Hook for listing threads via LangGraph SDK Client
     └── components/
         ├── ParticlesBackground.tsx
         ├── GlowContainer.tsx
         ├── PipelineDashboard.tsx  # Phase-based orchestrator
         ├── PipelineForm.tsx       # Input form
+        ├── ThreadList.tsx         # Thread list with attach-to-thread support
         └── ClarificationPanel.tsx # Interrupt Q&A handler
 ```
 
@@ -1254,5 +1256,8 @@ The LangGraph server must be running separately (`npm run dev` in the project ro
 - **Assistant ID**: `"pipeline"` (matches the key in `langgraph.json`)
 - **Interrupt contract**: `answerClarificationsNode` sends `string[]` questions via `interrupt()`, frontend resumes with `command: { resume: string[] }` answers
 - **useStream hook**: From `@langchain/langgraph-sdk/react`, manages thread creation, streaming, interrupt detection, and resume
+- **Thread list**: `useThreads` hook uses `Client.threads.search()` to list recent threads; `ThreadList` component renders them with status badges and an attach button
+- **Attach to thread**: `usePipeline.attachToThread(threadId)` sets the `threadId` on `useStream`, which automatically loads the thread's state and resumes the appropriate phase (interrupted, running, complete, etc.)
+- **Thread loading**: `stream.isThreadLoading` is checked alongside `stream.isLoading` to show the running phase while an attached thread's data is being fetched
 
 </context>

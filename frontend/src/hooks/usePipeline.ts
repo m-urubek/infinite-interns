@@ -48,12 +48,12 @@ export function usePipeline() {
     if (stream.interrupt?.value && Array.isArray(stream.interrupt.value)) {
       return 'interrupted';
     }
-    if (stream.isLoading) {
+    if (stream.isLoading || stream.isThreadLoading) {
       return 'running';
     }
     // Not loading, no interrupt, no error — finished
     return 'complete';
-  }, [stream.error, stream.interrupt, stream.isLoading]);
+  }, [stream.error, stream.interrupt, stream.isLoading, stream.isThreadLoading]);
 
   // Keep currentQuestions in sync with interrupt value
   const questions = useMemo(() => {
@@ -80,6 +80,11 @@ export function usePipeline() {
     });
   }, [stream]);
 
+  const attachToThread = useCallback((existingThreadId: string) => {
+    hasSubmitted.current = true;
+    setThreadId(existingThreadId);
+  }, []);
+
   const reset = useCallback(() => {
     hasSubmitted.current = false;
     setThreadId(null);
@@ -95,6 +100,7 @@ export function usePipeline() {
     threadId,
     launchPipeline,
     submitAnswers,
+    attachToThread,
     reset,
   };
 }

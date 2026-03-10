@@ -2,6 +2,7 @@ import { usePipeline } from '../hooks/usePipeline';
 import { GlowContainer } from './GlowContainer';
 import { PipelineForm } from './PipelineForm';
 import { ClarificationPanel } from './ClarificationPanel';
+import { ThreadList } from './ThreadList';
 import { Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
 export function PipelineDashboard() {
@@ -13,14 +14,20 @@ export function PipelineDashboard() {
     threadId,
     launchPipeline,
     submitAnswers,
+    attachToThread,
     reset,
   } = usePipeline();
 
   if (phase === 'idle') {
     return (
-      <GlowContainer className="p-8">
-        <PipelineForm onSubmit={launchPipeline} />
-      </GlowContainer>
+      <div className="space-y-6">
+        <GlowContainer className="p-8">
+          <PipelineForm onSubmit={launchPipeline} />
+        </GlowContainer>
+        <GlowContainer className="p-6">
+          <ThreadList onAttach={attachToThread} />
+        </GlowContainer>
+      </div>
     );
   }
 
