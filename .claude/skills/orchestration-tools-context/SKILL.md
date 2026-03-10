@@ -1197,4 +1197,62 @@ Test files have relaxed rules (configured in `eslint.config.js`):
 - `@typescript-eslint/no-unnecessary-condition: "off"` — allows optional chaining on test results
 - Vitest globals (`describe`, `it`, `expect`, `vi`, etc.) are registered as readonly globals
 
+## Frontend UI
+
+### Overview
+
+The project includes a React frontend in `frontend/` for launching pipeline runs and handling interrupts. Detailed progress is monitored in LangGraph Studio — the UI only shows idle/running/interrupted/complete/error states.
+
+**Requires Node.js >= 20** (Vite 7 + Tailwind v4 native bindings need it).
+
+### Tech Stack
+
+- React 19 + TypeScript + Vite 7 + TailwindCSS v4 (CSS-first)
+- `@langchain/langgraph-sdk` `useStream` hook for server communication
+- `@tsparticles/react` for interactive particle background
+- `framer-motion` for animations
+- Dark-only luminescent theme (adapted from TherapistTemplate)
+
+### Structure
+
+```
+frontend/
+├── package.json
+├── vite.config.ts          # Proxy /api → localhost:2024
+├── postcss.config.js
+├── tsconfig*.json
+├── index.html
+└── src/
+    ├── main.tsx
+    ├── App.tsx              # Root layout with particles + header
+    ├── index.css            # Dark theme, glow effects, form styles
+    ├── vite-env.d.ts
+    ├── hooks/
+    │   └── usePipeline.ts   # Core hook wrapping useStream
+    └── components/
+        ├── ParticlesBackground.tsx
+        ├── GlowContainer.tsx
+        ├── PipelineDashboard.tsx  # Phase-based orchestrator
+        ├── PipelineForm.tsx       # Input form
+        └── ClarificationPanel.tsx # Interrupt Q&A handler
+```
+
+### Running the Frontend
+
+```bash
+cd frontend
+nvm use 20   # or ensure Node >= 20
+npm install
+npm run dev  # Opens at http://localhost:5173
+```
+
+The LangGraph server must be running separately (`npm run dev` in the project root).
+
+### Key Integration Points
+
+- **Vite proxy**: `/api` routes are proxied to `http://localhost:2024` (the LangGraph API server)
+- **Assistant ID**: `"pipeline"` (matches the key in `langgraph.json`)
+- **Interrupt contract**: `answerClarificationsNode` sends `string[]` questions via `interrupt()`, frontend resumes with `command: { resume: string[] }` answers
+- **useStream hook**: From `@langchain/langgraph-sdk/react`, manages thread creation, streaming, interrupt detection, and resume
+
 </context>
