@@ -39,8 +39,43 @@ Always use `Langchain.toolStrategy(zodSchema)` for structured output, NOT `provi
 
 ## Project Structure
 
+**Monorepo Layout** (as of March 2026):
 ```
-src/
+infinite-interns/                    # Monorepo root
+├── packages/
+│   ├── backend/                     # infinite-interns-backend (LangChain + LangGraph pipeline)
+│   │   ├── package.json             # Backend dependencies & scripts
+│   │   ├── tsconfig.json
+│   │   ├── eslint.config.js
+│   │   ├── langgraph.json           # LangGraph Studio config
+│   │   ├── src/
+│   │   │   ├── agents/
+│   │   │   ├── nodes/
+│   │   │   ├── backends/
+│   │   │   ├── invoke-agent-graph/
+│   │   │   ├── main-pipeline-graph/
+│   │   │   ├── shared/
+│   │   │   └── __tests__/
+│   │   ├── eslint-rules/
+│   │   ├── ts-plugins/
+│   │   └── scripts/
+│   └── frontend/                    # infinite-interns-ui (React + Vite UI)
+│       ├── package.json             # Frontend dependencies & scripts
+│       ├── vite.config.ts
+│       ├── tsconfig.json
+│       ├── src/
+│       │   ├── components/
+│       │   ├── hooks/
+│       │   └── App.tsx
+│       └── index.html
+├── package.json                     # Workspace root (npm workspaces)
+└── docs/
+```
+
+**Backend Source Structure:**
+
+```
+packages/backend/src/
 ├── agents/                           # Specialized agents (each in own directory)
 │   ├── prd-generator/                # PRD generation agent
 │   │   ├── prd-generator-graph.ts    # Subgraph: setup → invoke → process
@@ -789,20 +824,63 @@ Upstream.output → [setup node] → invokeAgentState.input
 
 ## Running the Project
 
-### Development Server (LangGraph Studio)
+### Monorepo Workspace Commands (from root)
 
 ```bash
+# Run backend only (LangGraph Studio at localhost:8123)
 npm run dev
+
+# Run frontend only (Vite at localhost:5173)
+npm run dev:frontend
+
+# Run both backend and frontend in parallel
+npm run dev:both
+
+# Run linting, type checking, tests, etc. for backend
+npm run fix        # Lint + format + type check
+npm run test       # Run tests once
+npm run test:watch # Run tests in watch mode
+npm run lint       # Lint check only
+npm run ts         # Type check only
 ```
 
-Opens LangGraph Studio at `http://localhost:8123`.
+### Backend-Specific Commands
+
+```bash
+cd packages/backend
+
+# Development
+npm run dev        # Start LangGraph Studio
+npm run dev:debug  # Start with debugger on 0.0.0.0:9229
+
+# Quality checks
+npm run fix        # Lint + format + type check (mandatory before commits)
+npm run test       # Run all tests
+npm run test:watch # Watch mode
+npm run test:debug # Debug mode with --inspect-brk
+npm run lint       # Lint only
+npm run ts         # Type check only
+npm run format     # Format only
+```
+
+### Frontend-Specific Commands
+
+```bash
+cd packages/frontend
+
+# Development & build
+npm run dev     # Start Vite at localhost:5173 (with /api proxy to backend)
+npm run build   # Build for production
+npm run preview # Preview production build
+```
 
 ### Debug Entry Point
 
-`src/debug-entry.ts` provides a standalone entry point for VSCode debugging. Launch config "Debug Pipeline" in `.vscode/launch.json` runs it with `tsx`.
+`packages/backend/src/debug-entry.ts` provides a standalone entry point for VSCode debugging. Launch config "Debug Pipeline" in `.vscode/launch.json` runs it with `tsx`.
 
 ### Environment Variables
 
+Backend environment (set in `packages/backend/.env`):
 ```env
 GOOGLE_API_KEY=your-google-api-key
 LANGSMITH_API_KEY=your-langsmith-key  # Optional, for tracing
@@ -811,7 +889,7 @@ LANGGRAPH_SCHEMA_RESOLVE_TIMEOUT_MS=120000
 
 ## Lint and TypeScript
 
-Always run `npm run fix` when you make changes in .ts files. This runs formatting (Prettier), lint check (ESLint with auto-fix), and TypeScript type checking. It returns even TypeScript errors, not only lints. This command is all you need to check your code.
+Always run `npm run fix` in the root (which runs it for backend) when you make changes in `.ts` files. This runs formatting (Prettier), lint check (ESLint with auto-fix), and TypeScript type checking. It returns even TypeScript errors, not only lints. This command is all you need to check your code.
 
 ## Code Style Requirements
 
@@ -1201,7 +1279,7 @@ Test files have relaxed rules (configured in `eslint.config.js`):
 
 ### Overview
 
-The project includes a React frontend in `frontend/` for launching pipeline runs and handling interrupts. Detailed progress is monitored in LangGraph Studio — the UI only shows idle/running/interrupted/complete/error states.
+The project includes a React frontend in `packages/frontend/` for launching pipeline runs and handling interrupts. Detailed progress is monitored in LangGraph Studio — the UI only shows idle/running/interrupted/complete/error states.
 
 **Requires Node.js >= 20** (Vite 7 + Tailwind v4 native bindings need it).
 
@@ -1242,13 +1320,13 @@ frontend/
 ### Running the Frontend
 
 ```bash
-cd frontend
+cd packages/frontend
 nvm use 20   # or ensure Node >= 20
 npm install
 npm run dev  # Opens at http://localhost:5173
 ```
 
-The LangGraph server must be running separately (`npm run dev` in the project root).
+The LangGraph server must be running separately (`npm run dev` in the project root or `packages/backend`).
 
 ### Key Integration Points
 

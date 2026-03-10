@@ -1,41 +1,26 @@
 {
-  "name": "orchestration-tools",
+  "name": "infinite-interns",
+  "private": true,
   "type": "module",
-  "overrides": {
-    "zod": "3.25.67"
-  },
+  "workspaces": [
+    "packages/backend",
+    "packages/frontend"
+  ],
   "scripts": {
-    "dev": "npx @langchain/langgraph-cli dev",
-    "dev:debug": "NODE_OPTIONS='--inspect=0.0.0.0:9229 --enable-source-maps' npx @langchain/langgraph-cli dev",
-    "lint": "eslint \"src/**/*.ts\" --fix --cache --format compact && echo 'Finished, no lint or ts errors found'",
-    "ts": "tsc --project tsconfig.json --noEmit && echo 'Type checking passed'",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:debug": "vitest --inspect-brk --single-thread",
-    "check-exports": "node scripts/check-exports.js",
-    "fix": "scripts/fix.sh",
-    "format": "prettier --write \"src/**/*.ts\""
-  },
-  "dependencies": {
-    "@langchain/core": "^1.1.29",
-    "@langchain/deepseek": "^1.0.15",
-    "@langchain/google-genai": "^2.1.22",
-    "@langchain/langgraph": "^1.2.0",
-    "@langchain/openai": "^1.2.11",
-    "deepagents": "^1.8.1",
-    "prettier": "^3.8.1",
-    "zod": "3.25.67"
+    "dev": "npm run dev -w infinite-interns-backend",
+    "dev:frontend": "npm run dev -w infinite-interns-ui",
+    "dev:both": "npm-run-all --parallel dev dev:frontend",
+    "build": "npm run build -w infinite-interns-ui && npm run build -w infinite-interns-backend",
+    "lint": "npm run lint -w infinite-interns-backend",
+    "ts": "npm run ts -w infinite-interns-backend",
+    "test": "npm run test -w infinite-interns-backend",
+    "test:watch": "npm run test:watch -w infinite-interns-backend",
+    "test:debug": "npm run test:debug -w infinite-interns-backend",
+    "check-exports": "npm run check-exports -w infinite-interns-backend",
+    "fix": "npm run fix -w infinite-interns-backend",
+    "format": "npm run format -w infinite-interns-backend"
   },
   "devDependencies": {
-    "@eslint/js": "^9.0.0",
-    "@types/node": "^22.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.0.0",
-    "@typescript-eslint/parser": "^8.0.0",
-    "eslint": "^9.0.0",
-    "eslint-formatter-compact": "^9.0.1",
-    "namespace-import-plugin": "file:ts-plugins/namespace-import-plugin",
-    "tsx": "^4.21.0",
-    "typescript": "^5.7.0",
-    "vitest": "^4.0.18"
+    "npm-run-all": "^4.1.5"
   }
 }
