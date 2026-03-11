@@ -97,6 +97,31 @@ The pipeline automates feature implementation in two main phases:
 
 ## Future Enhancements
 
+### Customizations for Agents
+
+**The user is going to be able to configure each agent individually**
+- LLM provider
+- Model
+- Limits
+- Temperature/Heat/Effort
+- Custom tools
+- Backends
+- Thinking
+- Custom rules
+- Number of retry attempts
+
+
+The system is going to store the Agent configurations locally so the user can have presets and switch between them.
+
+### System configuration and modes
+
+**The user is going to be able to configure various system, then create and manage mode presets from them.**
+- Set certain nodes or sections disabled/enabled
+- Set specific agent for specific node
+- API keys
+- Timeouts
+- Number of retry attempts for logically connected nodes (loops)
+
 ### Parallel execution
 
 **Launch the implementation loops in parallel to complete the PRD implementation faster**
