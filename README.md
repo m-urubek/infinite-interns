@@ -115,7 +115,7 @@ The system is going to store the Agent configurations locally so the user can ha
 
 ### System configuration and modes
 
-**The user is going to be able to configure various system, then create and manage mode presets from them.**
+**The user is going to be able to configure various parameters, then create and manage mode presets from them.**
 - Set certain nodes or sections disabled/enabled
 - Set specific agent for specific node
 - API keys
