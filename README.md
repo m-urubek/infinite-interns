@@ -2,7 +2,13 @@
 
 **Currently in development**
 
-A LangGraph-based autonomous software development pipeline that orchestrates specialized AI agents to help with every-day software development.
+A LangGraph-based autonomous development pipeline that orchestrates specialized AI agents to implement features end-to-end, complete with a React UI for management. The pipeline is generic and highly customizable with togglable modules.
+
+
+At its core, the pipeline assumes that initial feature definitions are incomplete. Before any code is written, it runs an interactive clarification phase with the developer to fill in gaps and ambiguities, ensuring a solid specification before implementation begins. From there, Infinite Interns handles implementation, documentation, and test updates automatically — resources that are essential for high-quality AI-driven results.
+
+Infinite Interns compresses roughly 5 hours of manual work into 30 minutes. The developer's role shifts from writing step-by-step prompts to defining the desired features and refining the output, delivering consistently better results than fully AI-generated code from conventional agentic tools.
+
 
 ## Pipeline Architecture
 
