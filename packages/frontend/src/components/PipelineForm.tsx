@@ -1,15 +1,43 @@
-import { useState } from 'react';
-import type { PipelineInput } from '../hooks/usePipeline';
+import { useState, useEffect } from 'react';
+import type { PipelineInput, AgentConfigs } from '../hooks/usePipeline';
+import type { Preset } from '../types/preset';
+import { LLM_AGENT_NODES } from '../types/preset';
 
 interface PipelineFormProps {
   onSubmit: (input: PipelineInput) => void;
+  preset?: Preset | null;
 }
 
-export function PipelineForm({ onSubmit }: PipelineFormProps) {
+function buildAgentConfigs(preset: Preset): AgentConfigs {
+  const configs: AgentConfigs = {};
+  for (const node of LLM_AGENT_NODES) {
+    const modelConfig = preset.agentModelConfigs[node] ?? {
+      model: 'gemini-3-flash-preview',
+      temperature: 1,
+      thinkingEnabled: false,
+    };
+    const retryConfig = preset.retryAttempts[node] ?? {
+      maxInSessionAttempts: 3,
+      maxSessionAttempts: 3,
+    };
+    configs[node] = { modelConfig, retryConfig };
+  }
+  return configs;
+}
+
+export function PipelineForm({ onSubmit, preset }: PipelineFormProps) {
   const [assignment, setAssignment] = useState('');
   const [projectDir, setProjectDir] = useState('');
   const [buildCommand, setBuildCommand] = useState('');
   const [finalVerifierEnabled, setFinalVerifierEnabled] = useState(true);
+
+  // Initialize form from preset when it changes
+  useEffect(() => {
+    if (preset) {
+      setBuildCommand(preset.buildCommandAutoDetect ? '' : preset.buildCommand);
+      setFinalVerifierEnabled(preset.finalVerifier);
+    }
+  }, [preset]);
 
   const isValid = assignment.trim().length > 0 && projectDir.trim().length > 0;
 
@@ -21,6 +49,9 @@ export function PipelineForm({ onSubmit }: PipelineFormProps) {
       projectDir: projectDir.trim(),
       buildCommand: buildCommand.trim() || null,
       finalVerifierEnabled,
+      clarificationRounds: preset?.businessClarificationRounds ?? 5,
+      maxImplementationAttempts: preset?.maxImplementationAttempts ?? 7,
+      agentConfigs: preset ? buildAgentConfigs(preset) : null,
     });
   }
 
@@ -58,7 +89,7 @@ export function PipelineForm({ onSubmit }: PipelineFormProps) {
           type="text"
           value={buildCommand}
           onChange={(e) => setBuildCommand(e.target.value)}
-          placeholder="npm run build"
+          placeholder={preset?.buildCommandAutoDetect ? 'Auto-detect enabled in preset' : 'npm run build'}
         />
       </div>
 

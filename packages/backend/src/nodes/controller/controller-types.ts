@@ -12,8 +12,12 @@ export type ControllerOutput = {
 
 export type ControllerInternal = {
   currentTaskIndex: NonNullable<number>;
-  builderAttempts: NonNullable<number>;
-  verifierAttempts: NonNullable<number>;
+  /**
+   * Unified failed-attempt counter for the current task.
+   * Both build failures and verification failures increment this counter.
+   * Resets to 0 when a task succeeds (verifier passes → advance to next task).
+   */
+  failedAttempts: NonNullable<number>;
   allTasksDone: NonNullable<boolean>;
   cycleCount: NonNullable<number>;
   lastBuilderOutputCycle: NonNullable<number>;

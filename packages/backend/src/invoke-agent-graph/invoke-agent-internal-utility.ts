@@ -30,6 +30,7 @@ export async function invokeAgent(
       ...(Util.isNotNullOrEmpty(systemPrompt) && {
         systemPrompt: systemPrompt,
       }),
+      // eslint-disable-next-line local/enforce-explicit-types
       responseFormat: Langchain.toolStrategy(responseZod),
     });
 

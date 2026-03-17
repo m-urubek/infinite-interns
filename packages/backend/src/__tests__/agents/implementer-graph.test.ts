@@ -67,8 +67,7 @@ describe("implementerGraph", () => {
         },
         internal: {
           currentTaskIndex: 0,
-          builderAttempts: 0,
-          verifierAttempts: 0,
+          failedAttempts: 0,
           allTasksDone: false,
           cycleCount: 0,
           lastBuilderOutputCycle: -1,
@@ -115,8 +114,7 @@ describe("implementerGraph", () => {
         },
         internal: {
           currentTaskIndex: 0,
-          builderAttempts: 1,
-          verifierAttempts: 0,
+          failedAttempts: 1,
           allTasksDone: false,
           cycleCount: 0,
           lastBuilderOutputCycle: -1,

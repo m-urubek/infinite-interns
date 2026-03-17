@@ -10,12 +10,25 @@ import { type ImplementerState } from "../agents/implementer/implementer-types";
 import { type BuilderState } from "../nodes/builder/builder-types";
 import { type VerifierState } from "../agents/verifier/verifier-types";
 import { type FinalVerifierState } from "../agents/final-verifier/final-verifier-types";
+import { type AgentConfigs } from "../shared/agent-config-types";
 
 export const mainPipelineInputAnnotation = Langgraph.Annotation.Root({
   assignment: Langgraph.Annotation<string>(),
   projectDir: Langgraph.Annotation<string>(),
   buildCommand: Langgraph.Annotation<string | null | undefined>(),
   finalVerifierEnabled: Langgraph.Annotation<boolean>(),
+  clarificationRounds: Langgraph.Annotation<number>({
+    reducer: Util.lastValue,
+    default: (): NonNullable<number> => 5,
+  }),
+  maxImplementationAttempts: Langgraph.Annotation<number>({
+    reducer: Util.lastValue,
+    default: (): NonNullable<number> => 7,
+  }),
+  agentConfigs: Langgraph.Annotation<AgentConfigs | null | undefined>({
+    reducer: Util.lastValue,
+    default: (): null => null,
+  }),
 });
 
 export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({
@@ -24,7 +37,7 @@ export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({
   invokeAgentState: Langgraph.Annotation<InvokeAgentState>({
     reducer: Util.lastValue,
     default: (): NonNullable<InvokeAgentState> => ({
-      input: { conversationHistory: null, userMessage: "" },
+      input: { conversationHistory: null, userMessage: "", modelConfig: null, retryConfig: null },
       output: null,
       internal: {
         succeeded: null,
@@ -70,8 +83,7 @@ export const mainPipelineStateAnnotation = Langgraph.Annotation.Root({
       output: null,
       internal: {
         currentTaskIndex: 0,
-        builderAttempts: 0,
-        verifierAttempts: 0,
+        failedAttempts: 0,
         allTasksDone: false,
         cycleCount: 0,
         lastBuilderOutputCycle: -1,

@@ -1,9 +1,10 @@
 import type { PipelinePhase, PipelineInput } from '../hooks/usePipeline';
+import type { Preset } from '../types/preset';
 import { GlowContainer } from './GlowContainer';
 import { PipelineForm } from './PipelineForm';
 import { ClarificationPanel } from './ClarificationPanel';
 import { ThreadList } from './ThreadList';
-import { Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, AlertTriangle, Settings, ExternalLink } from 'lucide-react';
 
 type PipelineDashboardProps = {
   phase: PipelinePhase;
@@ -15,6 +16,9 @@ type PipelineDashboardProps = {
   submitAnswers: (answers: string[]) => void;
   attachToThread: (threadId: string) => void;
   reset: () => void;
+  selectedPreset: Preset | null;
+  navigateToPresets: () => void;
+  isExternalThread: boolean;
 };
 
 export function PipelineDashboard({
@@ -27,13 +31,46 @@ export function PipelineDashboard({
   submitAnswers,
   attachToThread,
   reset,
+  selectedPreset,
+  navigateToPresets,
+  isExternalThread,
 }: PipelineDashboardProps) {
 
   if (phase === 'idle') {
     return (
       <div className="space-y-6">
+        {/* Preset controls — only when not attached to a thread */}
+        {!threadId && (
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <span className="text-white/40 text-sm font-heading">Preset:</span>
+              <span className="text-white/70 text-sm font-heading">
+                {selectedPreset?.name ?? 'None'}
+              </span>
+            </div>
+            <button
+              onClick={navigateToPresets}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-heading
+                text-tertiary/80 hover:text-tertiary hover:bg-tertiary/10 transition-colors"
+            >
+              <Settings size={14} />
+              Manage Presets
+            </button>
+          </div>
+        )}
+
+        {/* External thread notice */}
+        {threadId && isExternalThread && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <ExternalLink size={14} className="text-amber-400 shrink-0" />
+            <p className="text-xs text-amber-300">
+              This thread was created outside of Infinite Interns UI. Preset settings are not available.
+            </p>
+          </div>
+        )}
+
         <GlowContainer className="p-8">
-          <PipelineForm onSubmit={launchPipeline} />
+          <PipelineForm onSubmit={launchPipeline} preset={selectedPreset} />
         </GlowContainer>
         <GlowContainer className="p-6">
           <ThreadList onAttach={attachToThread} />

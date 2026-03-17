@@ -11,6 +11,6 @@ npm run lint
 echo ''
 echo 'Checking frontend types...'
 
-(cd frontend && npx tsc --noEmit)
+(cd ../frontend && npx tsc --noEmit)
 
 echo 'Finished, prettified, no lint or ts errors found. You can close this window.'

@@ -1,8 +1,8 @@
 import * as Langgraph from "@langchain/langgraph";
-import * as GeminiFlashModel from "../../shared/gemini-flash-model.js";
 import * as ReadOnlyBackend from "../../backends/read-only-backend.js";
 import * as InvokeAgentGraphFactory from "../../invoke-agent-graph/invoke-agent-graph-factory.js";
 import { type MainPipelineState } from "../../main-pipeline-graph/main-pipeline-types.js";
+import { type AgentConfig } from "../../shared/agent-config-types.js";
 import * as Util from "../../shared/util.js";
 import { type InvokeAgentOutput } from "../../invoke-agent-graph/invoke-agent-types.js";
 import * as MainPipelineAnnotations from "../../main-pipeline-graph/main-pipeline-annotations.js";
@@ -58,12 +58,12 @@ Rules:
 // ---------------------------------------------------------------------------
 
 const invokeGraph = InvokeAgentGraphFactory.createInvokeAgentGraph(
-  ReadOnlyBackend.ReadOnlyBackend, //backendClass: NonNullable<new (...args: NonNullable<Array<unknown>>) => NonNullable<BackendProtocol>>,
-  GeminiFlashModel.geminiFlashLLMMedium, //model: NonNullable<ChatGoogleGenerativeAI>,
-  systemPrompt, // systemPrompt: NonNullable<string>,
-  prdGeneratorAgentOutputSchema, // responseZod: NonNullable<ZodObject<ZodRawShape>>,
-  3, // maxInSessionAttempts: NonNullable<number>,
-  3 // maxSessionAttempts: NonNullable<number>
+  ReadOnlyBackend.ReadOnlyBackend,
+  null,
+  systemPrompt,
+  prdGeneratorAgentOutputSchema,
+  3,
+  3
 );
 
 function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainPipelineState>> {
@@ -75,9 +75,12 @@ function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainP
 ${Util.isNotNullOrEmpty(state.answerClarificationsState.output?.clarifications) ? JSON.stringify(state.answerClarificationsState.output.clarifications, null, 2) : "No clarifications provided, create the PRD based on the assignment only."}
 </clarifications>
 `;
+  const agentConfig: AgentConfig | null | undefined = state.agentConfigs?.prdGenerator ?? null;
   state.invokeAgentState.input = {
     conversationHistory: null,
     userMessage: message,
+    modelConfig: agentConfig?.modelConfig ?? null,
+    retryConfig: agentConfig?.retryConfig ?? null,
   };
   const update: NonNullable<Partial<MainPipelineState>> = { invokeAgentState: state.invokeAgentState };
   return update;

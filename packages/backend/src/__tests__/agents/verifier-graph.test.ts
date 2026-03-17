@@ -60,8 +60,7 @@ describe("verifierGraph", () => {
         },
         internal: {
           currentTaskIndex: 0,
-          builderAttempts: 0,
-          verifierAttempts: 0,
+          failedAttempts: 0,
           allTasksDone: false,
           cycleCount: 0,
           lastBuilderOutputCycle: -1,
@@ -100,8 +99,7 @@ describe("verifierGraph", () => {
         },
         internal: {
           currentTaskIndex: 0,
-          builderAttempts: 0,
-          verifierAttempts: 0,
+          failedAttempts: 0,
           allTasksDone: false,
           cycleCount: 0,
           lastBuilderOutputCycle: -1,

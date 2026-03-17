@@ -72,8 +72,7 @@ describe("routeAfterController", () => {
         output: null,
         internal: {
           currentTaskIndex: 0,
-          builderAttempts: 0,
-          verifierAttempts: 0,
+          failedAttempts: 0,
           allTasksDone: false,
           cycleCount: 0,
           lastBuilderOutputCycle: -1,
@@ -92,8 +91,7 @@ describe("routeAfterController", () => {
         output: null,
         internal: {
           currentTaskIndex: 2,
-          builderAttempts: 0,
-          verifierAttempts: 0,
+          failedAttempts: 0,
           allTasksDone: true,
           cycleCount: 0,
           lastBuilderOutputCycle: -1,

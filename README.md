@@ -97,36 +97,39 @@ The pipeline automates feature implementation in two main phases:
 
 - [todo] **Analysis Controller**: Routes between business and technical analysis phases, handles clarification round limits, and decides when to move to documentation.
 - **Answer Clarifications**: Presents analyzer questions to the human and collects answers via LangGraph interrupt, then returns to Analysis Controller.
-- **Implementation Controller**: Orchestrates the implementation loop by managing task iteration and retry limits for builder (N per task) and verifier (N per task). Routes to Tests Generator and Micro Documenter post-verification, or throws error on limit exceeded.
+- **Implementation Controller**: Orchestrates the implementation loop by managing task iteration and a unified failed-attempt counter per task (both build failures and verification failures increment the same counter; resets on task success). Routes to Tests Generator and Micro Documenter post-verification, or throws error on limit exceeded.
 - **Builder**: Runs the build command and checks the exit code; routes to verifier on success or back to controller on failure. Test runs can be part of the build command.
 - [todo] **Documentation indexer**: Runs indexation of the documentation.
 
+## Preset Configuration
+
+Each LLM agent can be configured individually via the preset management UI:
+- **Model**: Per-agent Gemini model selection
+- **Temperature**: Per-agent temperature (0-2)
+- **Thinking**: Per-agent reasoning output toggle
+- **Retry attempts**: Per-agent in-session and session retry limits
+- **Backends**: Per-agent filesystem permission level
+- **Custom rules**: Per-agent custom instructions
+- **Clarification rounds**: Max rounds before proceeding to planning
+- **Max implementation attempts**: Unified failure limit per task (build + verification failures combined)
+
+Presets are stored locally in SQLite and can be switched between runs.
+
 ## Future Enhancements
 
-### Customizations for Agents
+### Customizations for Agents (partially implemented)
 
-**The user is going to be able to configure each agent individually**
-- LLM provider
-- Model
-- Limits
-- Temperature/Heat/Effort
-- Custom tools
-- Backends
-- Thinking
-- Custom rules
-- Number of retry attempts
-
-
-The system is going to store the Agent configurations locally so the user can have presets and switch between them.
+**Remaining:**
+- LLM provider selection (currently Google-only)
+- Custom tools per agent
+- Rate limits enforcement
+- Agent toggles (disabling specific pipeline stages)
 
 ### System configuration and modes
 
-**The user is going to be able to configure various parameters, then create and manage mode presets from them.**
-- Set certain nodes or sections disabled/enabled
-- Set specific agent for specific node
-- API keys
+**Remaining:**
+- API keys management
 - Timeouts
-- Number of retry attempts for logically connected nodes (loops)
 
 ### Parallel execution
 

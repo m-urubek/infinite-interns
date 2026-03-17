@@ -12,9 +12,12 @@ function getDefaultState(): NonNullable<MainPipelineState> {
     projectDir: "/tmp/test-project",
     buildCommand: null,
     finalVerifierEnabled: true,
+    clarificationRounds: 5,
+    maxImplementationAttempts: 7,
+    agentConfigs: null,
 
     invokeAgentState: {
-      input: { conversationHistory: null, userMessage: "" },
+      input: { conversationHistory: null, userMessage: "", modelConfig: null, retryConfig: null },
       output: null,
       internal: {
         succeeded: null,
@@ -41,8 +44,7 @@ function getDefaultState(): NonNullable<MainPipelineState> {
       output: null,
       internal: {
         currentTaskIndex: 0,
-        builderAttempts: 0,
-        verifierAttempts: 0,
+        failedAttempts: 0,
         allTasksDone: false,
         cycleCount: 0,
         lastBuilderOutputCycle: -1,

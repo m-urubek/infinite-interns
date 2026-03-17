@@ -2,8 +2,6 @@ import { type MainPipelineState } from "./main-pipeline-types";
 import * as Util from "../shared/util";
 import { type PrdAnalyzerOutput } from "../agents/prd-analyzer/prd-analyzer-types";
 
-const MAX_CLARIFICATION_ROUNDS: NonNullable<number> = 5;
-
 // ---------------------------------------------------------------------------
 // Routing: after analyzer, decide whether to ask for clarifications or plan
 // ---------------------------------------------------------------------------
@@ -20,7 +18,7 @@ export function routeAfterAnalyzer(state: NonNullable<MainPipelineState>): NonNu
   let resultRoute: NonNullable<PostAnalyzerRoute>;
 
   const roundLimitReached: NonNullable<boolean> =
-    state.answerClarificationsState.internal.clarificationRound >= MAX_CLARIFICATION_ROUNDS;
+    state.answerClarificationsState.internal.clarificationRound >= state.clarificationRounds;
 
   if (!analyzerOutput.needsClarification || roundLimitReached) {
     resultRoute = "plannerGraph" as NonNullable<PostAnalyzerRoute>;

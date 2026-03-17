@@ -1,11 +1,32 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { useStream } from '@langchain/langgraph-sdk/react';
 
+export type AgentModelConfig = {
+  model: string;
+  temperature: number;
+  thinkingEnabled: boolean;
+};
+
+export type AgentRetryConfig = {
+  maxInSessionAttempts: number;
+  maxSessionAttempts: number;
+};
+
+export type AgentConfig = {
+  modelConfig: AgentModelConfig;
+  retryConfig: AgentRetryConfig;
+};
+
+export type AgentConfigs = Record<string, AgentConfig>;
+
 export interface PipelineInput {
   assignment: string;
   projectDir: string;
   buildCommand: string | null;
   finalVerifierEnabled: boolean;
+  clarificationRounds: number;
+  maxImplementationAttempts: number;
+  agentConfigs: AgentConfigs | null;
 }
 
 interface FinalVerifierOutput {
@@ -70,6 +91,9 @@ export function usePipeline() {
       projectDir: input.projectDir,
       buildCommand: input.buildCommand,
       finalVerifierEnabled: input.finalVerifierEnabled,
+      clarificationRounds: input.clarificationRounds,
+      maxImplementationAttempts: input.maxImplementationAttempts,
+      agentConfigs: input.agentConfigs,
     });
   }, [stream]);
 

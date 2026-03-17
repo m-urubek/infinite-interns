@@ -8,11 +8,27 @@ import { type ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { type BackendProtocol } from "deepagents";
 import * as MainPipelineAnnotations from "../main-pipeline-graph/main-pipeline-annotations";
 import { type MainPipelineState } from "../main-pipeline-graph/main-pipeline-types";
+import * as ModelFactory from "../shared/model-factory";
+import * as GeminiFlashModel from "../shared/gemini-flash-model";
+
+function resolveModel(
+  inputModelConfig: InvokeAgentInput["modelConfig"],
+  fallbackModel: ChatGoogleGenerativeAI | null | undefined
+): NonNullable<ChatGoogleGenerativeAI> {
+  if (Util.isNotNullOrUndf(inputModelConfig)) {
+    const resolved: NonNullable<ChatGoogleGenerativeAI> = ModelFactory.createModelFromConfig(inputModelConfig);
+    return resolved;
+  }
+  if (Util.isNotNullOrUndf(fallbackModel)) {
+    return fallbackModel;
+  }
+  return GeminiFlashModel.geminiFlashLLMMedium;
+}
 
 export function createInvokeAgentGraph(
   // eslint-disable-next-line local/enforce-explicit-types
   backendClass: new (options: { rootDir: string }) => BackendProtocol,
-  model: NonNullable<ChatGoogleGenerativeAI>,
+  model: ChatGoogleGenerativeAI | null | undefined,
   systemPrompt: NonNullable<string>,
   responseZod: NonNullable<ZodObject<ZodRawShape>>,
   maxInSessionAttempts: NonNullable<number>,
@@ -24,6 +40,7 @@ export function createInvokeAgentGraph(
     const input: NonNullable<InvokeAgentInput> = state.invokeAgentState.input;
 
     const backend: NonNullable<BackendProtocol> = new backendClass({ rootDir: state.projectDir });
+    const resolvedModel: NonNullable<ChatGoogleGenerativeAI> = resolveModel(input.modelConfig, model);
 
     const messages: NonNullable<Array<Message>> = input.conversationHistory ?? [];
     messages.push({
@@ -33,7 +50,7 @@ export function createInvokeAgentGraph(
 
     const agentOutput: NonNullable<InvokeAgentInternalOutput> = await InvokeAgentInternalUtility.invokeAgent(
       messages,
-      model,
+      resolvedModel,
       backend,
       systemPrompt,
       responseZod
@@ -60,6 +77,10 @@ export function createInvokeAgentGraph(
   async function repeatNode(state: NonNullable<MainPipelineState>): NonNullable<Promise<Partial<MainPipelineState>>> {
     const internalState: NonNullable<InvokeAgentInternal> = state.invokeAgentState.internal;
     const input: NonNullable<InvokeAgentInput> = state.invokeAgentState.input;
+    const resolvedModel: NonNullable<ChatGoogleGenerativeAI> = resolveModel(input.modelConfig, model);
+
+    const effectiveMaxInSession: NonNullable<number> = input.retryConfig?.maxInSessionAttempts ?? maxInSessionAttempts;
+    const effectiveMaxSessions: NonNullable<number> = input.retryConfig?.maxSessionAttempts ?? maxSessionAttempts;
 
     internalState.currentInSessionAttempt = Util.applyDefault(internalState.currentInSessionAttempt, 2); // second message
     internalState.currentSessionAttempt = Util.applyDefault(internalState.currentSessionAttempt, 1); // first session
@@ -84,7 +105,7 @@ export function createInvokeAgentGraph(
       const backend: NonNullable<BackendProtocol> = new backendClass({ rootDir: state.projectDir });
       const agentOutput: NonNullable<InvokeAgentInternalOutput> = await InvokeAgentInternalUtility.invokeAgent(
         messages,
-        model,
+        resolvedModel,
         backend,
         systemPrompt,
         responseZod
@@ -105,13 +126,13 @@ export function createInvokeAgentGraph(
       internalState.errorMessage = agentOutput.errorMessage;
       internalState.currentInSessionAttempt++;
 
-      if (internalState.currentInSessionAttempt > maxInSessionAttempts) {
+      if (internalState.currentInSessionAttempt > effectiveMaxInSession) {
         internalState.currentInSessionAttempt = 1;
         internalState.currentSessionAttempt++;
 
-        if (internalState.currentSessionAttempt > maxSessionAttempts) {
+        if (internalState.currentSessionAttempt > effectiveMaxSessions) {
           throw new Error(
-            `Max session attempts (${maxSessionAttempts.toString()}) reached. Last error: ${agentOutput.errorMessage ?? "unknown"}`
+            `Max session attempts (${effectiveMaxSessions.toString()}) reached. Last error: ${agentOutput.errorMessage ?? "unknown"}`
           );
         }
 

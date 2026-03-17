@@ -9,8 +9,8 @@
   "scripts": {
     "dev": "npm-run-all --parallel dev:backend dev:frontend",
     "dev:backend": "npm run dev -w infinite-interns-backend",
-    "dev:frontend": "npm run dev -w infinite-interns-ui",
-    "build": "npm run build -w infinite-interns-ui && npm run build -w infinite-interns-backend",
+    "dev:frontend": "bash -c 'source ~/.nvm/nvm.sh && nvm use 20 --silent && npm run dev -w infinite-interns-ui'",
+    "build": "bash -c 'source ~/.nvm/nvm.sh && nvm use 20 --silent && npm run build -w infinite-interns-ui' && npm run build -w infinite-interns-backend",
     "lint": "npm run lint -w infinite-interns-backend",
     "ts": "npm run ts -w infinite-interns-backend",
     "test": "npm run test -w infinite-interns-backend",

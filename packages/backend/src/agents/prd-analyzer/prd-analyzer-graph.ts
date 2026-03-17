@@ -1,8 +1,8 @@
 import * as Langgraph from "@langchain/langgraph";
-import * as GeminiFlashModel from "../../shared/gemini-flash-model.js";
 import * as ReadOnlyBackend from "../../backends/read-only-backend.js";
 import * as InvokeAgentGraphFactory from "../../invoke-agent-graph/invoke-agent-graph-factory.js";
 import { type MainPipelineState } from "../../main-pipeline-graph/main-pipeline-types.js";
+import { type AgentConfig } from "../../shared/agent-config-types.js";
 import * as Util from "../../shared/util.js";
 import { type InvokeAgentOutput } from "../../invoke-agent-graph/invoke-agent-types.js";
 import * as MainPipelineAnnotations from "../../main-pipeline-graph/main-pipeline-annotations.js";
@@ -48,7 +48,7 @@ Rules:
 
 const invokeGraph = InvokeAgentGraphFactory.createInvokeAgentGraph(
   ReadOnlyBackend.ReadOnlyBackend,
-  GeminiFlashModel.geminiFlashLLMMedium,
+  null,
   systemPrompt,
   prdAnalyzerAgentOutputSchema,
   3,
@@ -78,9 +78,12 @@ ${Util.isNotNullOrEmpty(previousClarifications) ? JSON.stringify(previousClarifi
 </previous-clarifications>
 `;
 
+  const agentConfig: AgentConfig | null | undefined = state.agentConfigs?.prdAnalyzer ?? null;
   state.invokeAgentState.input = {
     conversationHistory: null,
     userMessage: message,
+    modelConfig: agentConfig?.modelConfig ?? null,
+    retryConfig: agentConfig?.retryConfig ?? null,
   };
   const update: NonNullable<Partial<MainPipelineState>> = { invokeAgentState: state.invokeAgentState };
   return update;

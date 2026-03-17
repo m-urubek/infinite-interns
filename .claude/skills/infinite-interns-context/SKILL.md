@@ -162,11 +162,11 @@ The `invoke-agent-graph` module is a generic, reusable subgraph for invoking any
 ```typescript
 createInvokeAgentGraph(
   backendClass, // Backend type (ReadOnly, ReadOnlyShell, LocalShell)
-  model, // LLM model instance
+  model, // LLM model instance (or null — resolved at runtime from state)
   systemPrompt, // Agent system prompt
   responseZod, // Zod schema for structured output validation
-  maxInSessionAttempts, // Retries within same session (default 3)
-  maxSessionAttempts // Fresh session retries (default 3)
+  maxInSessionAttempts, // Retries within same session (default 3, overridable via state)
+  maxSessionAttempts // Fresh session retries (default 3, overridable via state)
 );
 ```
 
@@ -378,8 +378,7 @@ flowchart TD
 - Human resumes with `Command({ resume: ["answer1", "answer2", ...] })`
 - The interrupt node is a **direct node in the main pipeline**, not inside any subgraph
 - **Implementation cycle**: controller → implementer → builder → verifier → controller (loops per task)
-- **Builder retry limit**: 7 per task (correction implementer → builder loop)
-- **Verifier retry limit**: 7 per task (correction implementer → builder → verifier loop)
+- **Implementation retry limit**: 7 per task by default (configurable via `maxImplementationAttempts`). Both build failures and verification failures increment the same `failedAttempts` counter. Counter resets on task success
 - **Final verifier** runs once after all tasks complete — does NOT loop
 
 ## Currently Implemented Agents
@@ -430,7 +429,7 @@ flowchart TD
 - **Reads**: `plannerState.output` (tasks, buildCommand), `builderState.output` (build result), `verifierState.output` (verification result), `prdAnalyzerState.output.prd`
 - **Writes**: `controllerState.output` (current task info for implementer), `controllerState.internal` (task index, attempt counters), clears `builderState.output` and `verifierState.output` after processing
 - **Routing**: Routes to `implementerGraph` (has remaining tasks) or `finalVerifierGraph` (all tasks done)
-- **Retry tracking**: Tracks `builderAttempts` (max 7 per task) and `verifierAttempts` (max 7 per task), both reset when advancing to the next task. Throws an error to stop the pipeline if limits are exceeded
+- **Retry tracking**: Uses a unified `failedAttempts` counter per task. Both build failures and verification failures increment the same counter. Counter resets to 0 when a task succeeds (verifier passes). Throws when `failedAttempts >= state.maxImplementationAttempts` (default 7)
 
 ### Implementer Agent
 
@@ -491,7 +490,7 @@ type ClarifyingQuestions = Array<ClarifyingQuestion>;
 
 ```typescript
 type InvokeAgentState = {
-  input: InvokeAgentInput; // { conversationHistory, userMessage }
+  input: InvokeAgentInput; // { conversationHistory, userMessage, modelConfig, retryConfig }
   output: InvokeAgentOutput; // { result: ZodObject output }
   internal: InvokeAgentInternal; // { succeeded, errorMessage, attempt counters }
 };
@@ -572,8 +571,8 @@ type ControllerOutput = {
 
 type ControllerInternal = {
   currentTaskIndex: number;
-  builderAttempts: number;
-  verifierAttempts: number;
+  /** Unified counter — both build and verification failures increment this. Resets on task success. */
+  failedAttempts: number;
   allTasksDone: boolean;
 };
 
@@ -1055,6 +1054,9 @@ export const mainPipelineInputAnnotation = Langgraph.Annotation.Root({
   projectDir: Langgraph.Annotation<string>(),
   buildCommand: Langgraph.Annotation<string | null | undefined>(),
   finalVerifierEnabled: Langgraph.Annotation<boolean>(),
+  clarificationRounds: Langgraph.Annotation<number>(),       // default 5
+  maxImplementationAttempts: Langgraph.Annotation<number>(),  // default 7
+  agentConfigs: Langgraph.Annotation<AgentConfigs | null | undefined>(), // default null
 });
 ```
 
@@ -1065,6 +1067,18 @@ If `buildCommand` is provided by the user, the planner uses it directly. If null
 ### finalVerifierEnabled
 
 Controls whether the final verifier agent runs after all tasks complete. If `false`, the pipeline skips the final verifier and goes directly to `__end__`. If `true`, the final verifier agent runs holistically to verify the entire implementation. User must set this before launching the pipeline (required boolean field).
+
+### clarificationRounds
+
+Maximum number of clarification rounds before the pipeline proceeds to planning. Default: 5. Read by `routeAfterAnalyzer` in routing.
+
+### maxImplementationAttempts
+
+Maximum number of failed attempts (build failures + verification failures combined) per task before the pipeline throws. Default: 7. Read by `controllerNode`.
+
+### agentConfigs
+
+Per-agent model and retry configuration. Type: `Record<LlmAgentNode, AgentConfig>` where each `AgentConfig` contains `modelConfig` (model, temperature, thinkingEnabled) and `retryConfig` (maxInSessionAttempts, maxSessionAttempts). If null, agents use the default `geminiFlashLLMMedium` singleton and constructor retry limits.
 
 ## Unit Testing
 
@@ -1119,7 +1133,7 @@ const state = MockStateFactory.createMockState({
       isCorrection: false,
       correctionError: null,
     },
-    internal: { currentTaskIndex: 0, builderAttempts: 0, verifierAttempts: 0, allTasksDone: false },
+    internal: { currentTaskIndex: 0, failedAttempts: 0, allTasksDone: false },
   },
 });
 ```

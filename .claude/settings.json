@@ -1,9 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx eslint src/invoke-agent-graph/invoke-agent-graph.ts)",
+      "Bash(npx eslint)",
       "WebSearch",
-      "Bash(find /home/pc/Coding/infinite-interns/packages/frontend/node_modules -name *rc-tree* -o -name *langgraph*)",
       //"Bash(find)",
       "Bash(head:*)",
       // "Bash(ls)",
@@ -12,9 +11,10 @@
       "WebFetch(*)",
       "Read(*)",
       "ReadFile(*)",
-      "WriteFile(*SKILL.md)",
-      "WriteFile(*README.md)",
-      "Bash(npx tsc:*)"
+      "Write(*)",
+      "WriteFile(*)",
+      "Bash(npx tsc)",
+      "Bash(npm run fix)"
     ],
     "additionalDirectories": ["/home/pc/Coding/infinite-interns/ts-plugins"]
   }

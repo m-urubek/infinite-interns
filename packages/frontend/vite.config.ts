@@ -1,11 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { createRequire } from "module";
+import { presetsApiPlugin } from "./src/server/presets-api-plugin";
 
 const require = createRequire(import.meta.url);
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), presetsApiPlugin()],
   resolve: {
     alias: [
       { find: /^react$/, replacement: require.resolve("react") },

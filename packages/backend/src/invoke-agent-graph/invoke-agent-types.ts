@@ -1,5 +1,6 @@
 import type z from "zod";
 import { type ZodRawShape } from "zod";
+import { type ModelConfig, type RetryConfig } from "../shared/agent-config-types";
 
 export type InvokeAgentState = {
   input: NonNullable<InvokeAgentInput>;
@@ -11,6 +12,10 @@ export type InvokeAgentInput = {
   /** Previous messages in the conversation NOT including the current user prompt. */
   conversationHistory: Array<Message> | null | undefined;
   userMessage: NonNullable<string>;
+  /** Per-agent model configuration. If null, falls back to the default model. */
+  modelConfig: ModelConfig | null | undefined;
+  /** Per-agent retry configuration. If null, falls back to the factory defaults. */
+  retryConfig: RetryConfig | null | undefined;
 };
 
 export type InvokeAgentInternal = {

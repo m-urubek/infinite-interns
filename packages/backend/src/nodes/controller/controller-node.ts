@@ -5,9 +5,6 @@ import { type VerifierOutput } from "../../agents/verifier/verifier-types";
 import { type ControllerOutput } from "./controller-types";
 import * as Util from "../../shared/util";
 
-const MAX_BUILDER_ATTEMPTS: NonNullable<number> = 7;
-const MAX_VERIFIER_ATTEMPTS: NonNullable<number> = 7;
-
 function buildTasksSummary(tasks: NonNullable<Array<PlannerTask>>): NonNullable<string> {
   const lines: NonNullable<Array<string>> = tasks.map(
     (task: NonNullable<PlannerTask>, index: NonNullable<number>): NonNullable<string> => {
@@ -52,26 +49,27 @@ export function controllerNode(state: NonNullable<MainPipelineState>): NonNullab
   // Step 1: Process the outcome from the previous cycle iteration
   // -----------------------------------------------------------------------
 
+  const maxAttempts: NonNullable<number> = state.maxImplementationAttempts;
+
   if (verifierOutputFresh && Util.isNotNullOrUndf(verifierOutput)) {
     state.controllerState.internal.lastVerifierOutputCycle = cycleCount;
     if (verifierOutput.success) {
       state.controllerState.internal.currentTaskIndex++;
-      state.controllerState.internal.builderAttempts = 0;
-      state.controllerState.internal.verifierAttempts = 0;
+      state.controllerState.internal.failedAttempts = 0;
     } else {
-      state.controllerState.internal.verifierAttempts++;
-      if (state.controllerState.internal.verifierAttempts >= MAX_VERIFIER_ATTEMPTS) {
+      state.controllerState.internal.failedAttempts++;
+      if (state.controllerState.internal.failedAttempts >= maxAttempts) {
         throw new Error(
-          `Verifier retry limit (${MAX_VERIFIER_ATTEMPTS.toString()}) reached for task ${state.controllerState.internal.currentTaskIndex.toString()}. Last failure: ${verifierOutput.failureDescription ?? "unknown"}`
+          `Implementation retry limit (${maxAttempts.toString()}) reached for task ${state.controllerState.internal.currentTaskIndex.toString()}. Last failure: ${verifierOutput.failureDescription ?? "unknown"}`
         );
       }
     }
   } else if (builderOutputFresh && Util.isNotNullOrUndf(builderOutput) && !builderOutput.success) {
     state.controllerState.internal.lastBuilderOutputCycle = cycleCount;
-    state.controllerState.internal.builderAttempts++;
-    if (state.controllerState.internal.builderAttempts >= MAX_BUILDER_ATTEMPTS) {
+    state.controllerState.internal.failedAttempts++;
+    if (state.controllerState.internal.failedAttempts >= maxAttempts) {
       throw new Error(
-        `Builder retry limit (${MAX_BUILDER_ATTEMPTS.toString()}) reached for task ${state.controllerState.internal.currentTaskIndex.toString()}. Last error: ${builderOutput.errorOutput ?? "unknown"}`
+        `Implementation retry limit (${maxAttempts.toString()}) reached for task ${state.controllerState.internal.currentTaskIndex.toString()}. Last error: ${builderOutput.errorOutput ?? "unknown"}`
       );
     }
   }

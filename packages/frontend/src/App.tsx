@@ -1,10 +1,72 @@
+import { useState, useCallback } from 'react';
 import { ParticlesBackground } from './components/ParticlesBackground';
 import { PipelineDashboard } from './components/PipelineDashboard';
 import { PipelineTree } from './components/PipelineTree';
+import { PresetManagementPage } from './components/PresetManagementPage';
 import { usePipeline } from './hooks/usePipeline';
+import { usePresets } from './hooks/usePresets';
+import { getStaticPresetTree } from './data/pipeline-tree-definition';
+
+type CurrentPage = 'main' | 'presets';
 
 export default function App() {
   const pipeline = usePipeline();
+  const presetsHook = usePresets();
+  const [currentPage, setCurrentPage] = useState<CurrentPage>('main');
+  const [isExternalThread, setIsExternalThread] = useState(false);
+
+  const presetTree = presetsHook.selectedPreset
+    ? getStaticPresetTree(presetsHook.selectedPreset)
+    : null;
+
+  const handleAttachToThread = useCallback(
+    async (threadId: string) => {
+      pipeline.attachToThread(threadId);
+      const presetId = await presetsHook.getThreadPreset(threadId);
+      if (presetId) {
+        setIsExternalThread(false);
+        presetsHook.selectPreset(presetId);
+      } else {
+        setIsExternalThread(true);
+      }
+    },
+    [pipeline, presetsHook],
+  );
+
+  const handleLaunchPipeline = useCallback(
+    async (input: Parameters<typeof pipeline.launchPipeline>[0]) => {
+      await pipeline.launchPipeline(input);
+      // Save thread-preset association after launch
+      // threadId gets set via onThreadId callback asynchronously,
+      // so we use a small delay to ensure it's available
+      const checkAndSave = () => {
+        if (pipeline.threadId && presetsHook.selectedPresetId) {
+          presetsHook.saveThreadPreset(pipeline.threadId, presetsHook.selectedPresetId);
+        }
+      };
+      // Check immediately and after a short delay for async threadId assignment
+      checkAndSave();
+      setTimeout(checkAndSave, 1000);
+    },
+    [pipeline, presetsHook],
+  );
+
+  const handleReset = useCallback(() => {
+    pipeline.reset();
+    setIsExternalThread(false);
+  }, [pipeline]);
+
+  if (currentPage === 'presets') {
+    return (
+      <div className="h-screen flex relative overflow-hidden">
+        <ParticlesBackground />
+        <PresetManagementPage
+          presetsHook={presetsHook}
+          navigateToMain={() => setCurrentPage('main')}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex relative">
@@ -15,7 +77,12 @@ export default function App() {
         className="pipeline-sidebar relative z-10 border-r border-white/[0.06] py-6 flex-shrink-0"
         style={{ width: 280, overflowX: 'auto' }}
       >
-        <PipelineTree threadId={pipeline.threadId} phase={pipeline.phase} />
+        <PipelineTree
+          threadId={pipeline.threadId}
+          phase={pipeline.phase}
+          presetTree={presetTree}
+          preset={presetsHook.selectedPreset}
+        />
       </aside>
 
       {/* Main content */}
@@ -34,10 +101,13 @@ export default function App() {
           error={pipeline.error as Error | null | undefined}
           currentQuestions={pipeline.currentQuestions}
           threadId={pipeline.threadId}
-          launchPipeline={pipeline.launchPipeline}
+          launchPipeline={handleLaunchPipeline}
           submitAnswers={pipeline.submitAnswers}
-          attachToThread={pipeline.attachToThread}
-          reset={pipeline.reset}
+          attachToThread={handleAttachToThread}
+          reset={handleReset}
+          selectedPreset={presetsHook.selectedPreset}
+          navigateToPresets={() => setCurrentPage('presets')}
+          isExternalThread={isExternalThread}
         />
       </main>
     </div>

@@ -59,7 +59,7 @@ describe("controllerNode", () => {
     expect(result.controllerState?.output?.prd).toBe("Test PRD content");
   });
 
-  it("advances to next task when verifier reports success", () => {
+  it("advances to next task when verifier reports success and resets failedAttempts", () => {
     const state: NonNullable<MainPipelineState> = createControllerState({
       verifierState: { output: { success: true, failureDescription: null } },
     });
@@ -67,47 +67,45 @@ describe("controllerNode", () => {
     const internal: ControllerInternal | null | undefined = result.controllerState?.internal;
 
     expect(internal?.currentTaskIndex).toBe(1);
-    expect(internal?.builderAttempts).toBe(0);
-    expect(internal?.verifierAttempts).toBe(0);
+    expect(internal?.failedAttempts).toBe(0);
     expect(result.controllerState?.output?.currentTask).toEqual(task2);
     expect(result.controllerState?.output?.isCorrection).toBe(false);
   });
 
-  it("sets up correction when verifier reports failure", () => {
+  it("increments failedAttempts when verifier reports failure", () => {
     const state: NonNullable<MainPipelineState> = createControllerState({
       verifierState: { output: { success: false, failureDescription: "Missing edge case" } },
     });
     const result = ControllerNode.controllerNode(state);
     const internal: ControllerInternal | null | undefined = result.controllerState?.internal;
 
-    expect(internal?.verifierAttempts).toBe(1);
+    expect(internal?.failedAttempts).toBe(1);
     expect(result.controllerState?.output?.isCorrection).toBe(true);
     expect(result.controllerState?.output?.correctionError).toContain("Verification failed");
     expect(result.controllerState?.output?.correctionError).toContain("Missing edge case");
   });
 
-  it("sets up correction when builder reports failure", () => {
+  it("increments failedAttempts when builder reports failure", () => {
     const state: NonNullable<MainPipelineState> = createControllerState({
       builderState: { output: { success: false, errorOutput: "Type error on line 5" } },
     });
     const result = ControllerNode.controllerNode(state);
     const internal: ControllerInternal | null | undefined = result.controllerState?.internal;
 
-    expect(internal?.builderAttempts).toBe(1);
+    expect(internal?.failedAttempts).toBe(1);
     expect(result.controllerState?.output?.isCorrection).toBe(true);
     expect(result.controllerState?.output?.correctionError).toContain("Build failed");
     expect(result.controllerState?.output?.correctionError).toContain("Type error on line 5");
   });
 
-  it("throws when verifier retry limit is reached", () => {
+  it("throws when implementation retry limit is reached via verifier failure", () => {
     const state: NonNullable<MainPipelineState> = createControllerState({
       verifierState: { output: { success: false, failureDescription: "still failing" } },
       controllerState: {
         output: null,
         internal: {
           currentTaskIndex: 0,
-          builderAttempts: 0,
-          verifierAttempts: 6,
+          failedAttempts: 6,
           allTasksDone: false,
           cycleCount: 0,
           lastBuilderOutputCycle: -1,
@@ -116,18 +114,17 @@ describe("controllerNode", () => {
       },
     });
 
-    expect(() => ControllerNode.controllerNode(state)).toThrow("Verifier retry limit");
+    expect(() => ControllerNode.controllerNode(state)).toThrow("Implementation retry limit");
   });
 
-  it("throws when builder retry limit is reached", () => {
+  it("throws when implementation retry limit is reached via builder failure", () => {
     const state: NonNullable<MainPipelineState> = createControllerState({
       builderState: { output: { success: false, errorOutput: "persistent error" } },
       controllerState: {
         output: null,
         internal: {
           currentTaskIndex: 0,
-          builderAttempts: 6,
-          verifierAttempts: 0,
+          failedAttempts: 6,
           allTasksDone: false,
           cycleCount: 0,
           lastBuilderOutputCycle: -1,
@@ -136,7 +133,27 @@ describe("controllerNode", () => {
       },
     });
 
-    expect(() => ControllerNode.controllerNode(state)).toThrow("Builder retry limit");
+    expect(() => ControllerNode.controllerNode(state)).toThrow("Implementation retry limit");
+  });
+
+  it("respects custom maxImplementationAttempts from pipeline input", () => {
+    const state: NonNullable<MainPipelineState> = createControllerState({
+      maxImplementationAttempts: 3,
+      builderState: { output: { success: false, errorOutput: "error" } },
+      controllerState: {
+        output: null,
+        internal: {
+          currentTaskIndex: 0,
+          failedAttempts: 2,
+          allTasksDone: false,
+          cycleCount: 0,
+          lastBuilderOutputCycle: -1,
+          lastVerifierOutputCycle: -1,
+        },
+      },
+    });
+
+    expect(() => ControllerNode.controllerNode(state)).toThrow("Implementation retry limit (3)");
   });
 
   it("sets allTasksDone when all tasks are completed", () => {
@@ -146,8 +163,7 @@ describe("controllerNode", () => {
         output: null,
         internal: {
           currentTaskIndex: 1,
-          builderAttempts: 0,
-          verifierAttempts: 0,
+          failedAttempts: 0,
           allTasksDone: false,
           cycleCount: 0,
           lastBuilderOutputCycle: -1,
@@ -195,8 +211,7 @@ describe("controllerNode", () => {
         output: null,
         internal: {
           currentTaskIndex: 0,
-          builderAttempts: 1,
-          verifierAttempts: 0,
+          failedAttempts: 1,
           allTasksDone: false,
           cycleCount: 1,
           lastBuilderOutputCycle: 1,
@@ -207,8 +222,30 @@ describe("controllerNode", () => {
     const result = ControllerNode.controllerNode(state);
     const internal: ControllerInternal | null | undefined = result.controllerState?.internal;
 
-    // builderAttempts should NOT increment since the output was already consumed
-    expect(internal?.builderAttempts).toBe(1);
+    // failedAttempts should NOT increment since the output was already consumed
+    expect(internal?.failedAttempts).toBe(1);
     expect(result.controllerState?.output?.isCorrection).toBe(false);
+  });
+
+  it("resets failedAttempts to 0 when task succeeds after previous failures", () => {
+    const state: NonNullable<MainPipelineState> = createControllerState({
+      verifierState: { output: { success: true, failureDescription: null } },
+      controllerState: {
+        output: null,
+        internal: {
+          currentTaskIndex: 0,
+          failedAttempts: 3,
+          allTasksDone: false,
+          cycleCount: 0,
+          lastBuilderOutputCycle: -1,
+          lastVerifierOutputCycle: -1,
+        },
+      },
+    });
+    const result = ControllerNode.controllerNode(state);
+    const internal: ControllerInternal | null | undefined = result.controllerState?.internal;
+
+    expect(internal?.failedAttempts).toBe(0);
+    expect(internal?.currentTaskIndex).toBe(1);
   });
 });
