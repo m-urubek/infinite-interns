@@ -60,8 +60,12 @@ const invokeGraph = InvokeAgentGraphFactory.createInvokeAgentGraph(
 // ---------------------------------------------------------------------------
 
 function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainPipelineState>> {
-  const prd: NonNullable<string> = state.prdGeneratorState.output.prd;
-  const previousClarifications: ClarifyingQuestions | null | undefined = state.prdGeneratorState.output.clarifications;
+  if (!Util.isNotNullOrUndf(state.analysisControllerState.output)) {
+    throw new Error("Analysis controller output is null or undefined");
+  }
+  const prd: NonNullable<string> = state.analysisControllerState.output.prd;
+  const previousClarifications: ClarifyingQuestions | null | undefined =
+    state.analysisControllerState.output.clarifications;
 
   const message: NonNullable<string> = `Analyze the following PRD and determine if any clarifications are needed before implementation can begin. The PRD was generated from my assignment and my assignment together with the clarifications are the source of truth, the PRD mustn't deviate from them very much and definitely not contradict them. The PRD must provide complete solution to my assignment + clarifications.
 
@@ -84,6 +88,7 @@ ${Util.isNotNullOrEmpty(previousClarifications) ? JSON.stringify(previousClarifi
     userMessage: message,
     modelConfig: agentConfig?.modelConfig ?? null,
     retryConfig: agentConfig?.retryConfig ?? null,
+    customRules: agentConfig?.customRules ?? null,
   };
   const update: NonNullable<Partial<MainPipelineState>> = { invokeAgentState: state.invokeAgentState };
   return update;
@@ -102,7 +107,10 @@ function processAnalysis(state: NonNullable<MainPipelineState>): NonNullable<Par
 
   const agentResult: NonNullable<PrdAnalyzerAgentResult> = prdAnalyzerAgentOutputSchema.parse(invokeAgentOutput.result);
 
-  const prd: NonNullable<string> = state.prdGeneratorState.output.prd;
+  if (!Util.isNotNullOrUndf(state.analysisControllerState.output)) {
+    throw new Error("Analysis controller output is null or undefined");
+  }
+  const prd: NonNullable<string> = state.analysisControllerState.output.prd;
 
   const output: NonNullable<PrdAnalyzerOutput> = {
     needsClarification: agentResult.needsClarification,
@@ -110,7 +118,7 @@ function processAnalysis(state: NonNullable<MainPipelineState>): NonNullable<Par
     confidence: agentResult.confidence,
     reasoning: agentResult.reasoning,
     prd: prd,
-    clarifications: state.prdGeneratorState.output.clarifications,
+    clarifications: state.analysisControllerState.output.clarifications,
   };
 
   state.prdAnalyzerState.output = output;

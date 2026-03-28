@@ -30,15 +30,15 @@ function createControllerState(overrides?: NonNullable<Record<string, unknown>>)
         buildCommand: "npm run build",
       },
     },
-    prdAnalyzerState: {
+    analysisControllerState: {
       output: {
-        needsClarification: false,
-        questions: [],
-        confidence: 9,
-        reasoning: "All clear",
         prd: "Test PRD content",
         clarifications: null,
+        assignment: "Test assignment",
+        questions: [],
+        nextTarget: "plannerGraph",
       },
+      internal: { currentPhase: "done", businessRound: 0, technicalRound: 0, prdGenerated: true },
     },
     ...overrides,
   });
@@ -185,15 +185,15 @@ describe("controllerNode", () => {
           buildCommand: "npm run build",
         },
       },
-      prdAnalyzerState: {
+      analysisControllerState: {
         output: {
-          needsClarification: false,
-          questions: [],
-          confidence: 9,
-          reasoning: "All clear",
           prd: "Test PRD",
           clarifications: null,
+          assignment: "Test assignment",
+          questions: [],
+          nextTarget: "plannerGraph",
         },
+        internal: { currentPhase: "done", businessRound: 0, technicalRound: 0, prdGenerated: true },
       },
     });
     const result = ControllerNode.controllerNode(state);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { PipelineInput, AgentConfigs } from '../hooks/usePipeline';
+import type { PipelineInput, AgentConfigs, RateLimitsConfig, DocumentationConfig } from '../hooks/usePipeline';
 import type { Preset } from '../types/preset';
 import { LLM_AGENT_NODES } from '../types/preset';
 
@@ -20,9 +20,34 @@ function buildAgentConfigs(preset: Preset): AgentConfigs {
       maxInSessionAttempts: 3,
       maxSessionAttempts: 3,
     };
-    configs[node] = { modelConfig, retryConfig };
+    const customRules = preset.customRules[node] || null;
+    configs[node] = { modelConfig, retryConfig, customRules };
   }
   return configs;
+}
+
+function buildRateLimitsConfig(preset: Preset): RateLimitsConfig | null {
+  const hasAnyLimit =
+    preset.maxRpm !== null ||
+    preset.maxTpm !== null ||
+    preset.maxRpd !== null ||
+    preset.maxSpending !== null;
+  if (!hasAnyLimit) return null;
+  return {
+    maxRpm: preset.maxRpm,
+    maxTpm: preset.maxTpm,
+    maxRpd: preset.maxRpd,
+    maxSpending: preset.maxSpending,
+  };
+}
+
+function buildDocumentationConfig(preset: Preset): DocumentationConfig | null {
+  if (!preset.documentationEnabled) return null;
+  return {
+    enabled: true,
+    indexPath: preset.documentationIndexPath,
+    docsFolderPath: preset.docsFolderPath,
+  };
 }
 
 export function PipelineForm({ onSubmit, preset }: PipelineFormProps) {
@@ -49,8 +74,16 @@ export function PipelineForm({ onSubmit, preset }: PipelineFormProps) {
       projectDir: projectDir.trim(),
       buildCommand: buildCommand.trim() || null,
       finalVerifierEnabled,
-      clarificationRounds: preset?.businessClarificationRounds ?? 5,
+      businessClarificationsMode: preset?.businessClarificationsMode ?? 'interactive',
+      technicalClarificationsMode: preset?.technicalClarificationsMode ?? 'disabled',
+      businessClarificationRounds: preset?.businessClarificationRounds ?? 5,
+      technicalClarificationRounds: preset?.technicalClarificationRounds ?? 5,
       maxImplementationAttempts: preset?.maxImplementationAttempts ?? 7,
+      microplannerEnabled: preset?.microplanner ?? true,
+      builderEnabled: preset?.builder ?? true,
+      microVerifierEnabled: preset?.microVerifier ?? true,
+      documentationConfig: preset ? buildDocumentationConfig(preset) : null,
+      rateLimitsConfig: preset ? buildRateLimitsConfig(preset) : null,
       agentConfigs: preset ? buildAgentConfigs(preset) : null,
     });
   }

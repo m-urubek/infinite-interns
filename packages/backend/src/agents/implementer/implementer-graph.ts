@@ -69,6 +69,33 @@ ${controllerOutput.currentTask.relevantFiles.join("\n")}
 ${controllerOutput.correctionError ?? "Unknown error"}
 </error>`;
   } else {
+    const microPlanOutput: typeof state.microplannerState.output = state.microplannerState.output;
+
+    let microPlanSection: NonNullable<string> = "";
+    if (microPlanOutput) {
+      const patternsText: NonNullable<string> =
+        microPlanOutput.existingPatternsToReuse.length > 0
+          ? microPlanOutput.existingPatternsToReuse.join("\n- ")
+          : "None identified";
+
+      const referencesText: NonNullable<string> =
+        microPlanOutput.filesToReference.length > 0 ? microPlanOutput.filesToReference.join("\n") : "None identified";
+
+      microPlanSection = `
+
+<micro-plan>
+The following micro-plan was prepared by a codebase analysis agent. Follow it closely.
+
+${microPlanOutput.microPlan}
+
+Existing patterns to reuse:
+- ${patternsText}
+
+Files to reference before making changes:
+${referencesText}
+</micro-plan>`;
+    }
+
     message = `Implement the following task. After making your changes, run the build command to verify everything compiles.
 
 <build-command>
@@ -91,7 +118,7 @@ ${controllerOutput.prd}
 The following is the full plan. You are implementing task #${(controllerOutput.currentTaskIndex + 1).toString()}. Do NOT implement the other tasks — they will be handled by separate agents.
 
 ${controllerOutput.allTasksSummary}
-</other-tasks-summary>`;
+</other-tasks-summary>${microPlanSection}`;
   }
 
   const agentConfig: AgentConfig | null | undefined = state.agentConfigs?.implementer ?? null;
@@ -100,6 +127,7 @@ ${controllerOutput.allTasksSummary}
     userMessage: message,
     modelConfig: agentConfig?.modelConfig ?? null,
     retryConfig: agentConfig?.retryConfig ?? null,
+    customRules: agentConfig?.customRules ?? null,
   };
   const update: NonNullable<Partial<MainPipelineState>> = { invokeAgentState: state.invokeAgentState };
   return update;

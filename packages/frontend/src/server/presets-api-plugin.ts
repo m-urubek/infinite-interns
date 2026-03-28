@@ -30,8 +30,8 @@ function initDb(db: Database.Database): void {
       maxSpending REAL,
       buildCommand TEXT NOT NULL DEFAULT '',
       buildCommandAutoDetect INTEGER NOT NULL DEFAULT 1,
-      businessClarifications INTEGER NOT NULL DEFAULT 1,
-      technicalClarifications INTEGER NOT NULL DEFAULT 1,
+      businessClarificationsMode TEXT NOT NULL DEFAULT 'interactive',
+      technicalClarificationsMode TEXT NOT NULL DEFAULT 'disabled',
       microplanner INTEGER NOT NULL DEFAULT 1,
       builder INTEGER NOT NULL DEFAULT 1,
       microVerifier INTEGER NOT NULL DEFAULT 1,
@@ -39,6 +39,9 @@ function initDb(db: Database.Database): void {
       businessClarificationRounds INTEGER NOT NULL DEFAULT 5,
       technicalClarificationRounds INTEGER NOT NULL DEFAULT 5,
       maxImplementationAttempts INTEGER NOT NULL DEFAULT 7,
+      documentationEnabled INTEGER NOT NULL DEFAULT 0,
+      documentationIndexPath TEXT NOT NULL DEFAULT '',
+      docsFolderPath TEXT NOT NULL DEFAULT '',
       backends TEXT NOT NULL DEFAULT '{}',
       customRules TEXT NOT NULL DEFAULT '{}',
       retryAttempts TEXT NOT NULL DEFAULT '{}',
@@ -56,6 +59,9 @@ function initDb(db: Database.Database): void {
     );
   `);
 
+  // Migration: add new columns if they don't exist (for existing databases)
+  migrateSchema(db);
+
   // Seed default preset if table is empty
   const count = db.prepare('SELECT COUNT(*) as cnt FROM presets').get() as { cnt: number };
   if (count.cnt === 0) {
@@ -65,6 +71,33 @@ function initDb(db: Database.Database): void {
       'selectedPresetId',
       preset.id,
     );
+  }
+}
+
+function migrateSchema(db: Database.Database): void {
+  // Get current columns
+  const columns = db.prepare("PRAGMA table_info('presets')").all() as { name: string }[];
+  const columnNames = new Set(columns.map((c) => c.name));
+
+  // Migrate old boolean clarification fields to mode strings
+  if (columnNames.has('businessClarifications') && !columnNames.has('businessClarificationsMode')) {
+    db.exec("ALTER TABLE presets ADD COLUMN businessClarificationsMode TEXT NOT NULL DEFAULT 'interactive'");
+    db.exec("UPDATE presets SET businessClarificationsMode = CASE WHEN businessClarifications = 0 THEN 'disabled' ELSE 'interactive' END");
+  }
+  if (columnNames.has('technicalClarifications') && !columnNames.has('technicalClarificationsMode')) {
+    db.exec("ALTER TABLE presets ADD COLUMN technicalClarificationsMode TEXT NOT NULL DEFAULT 'disabled'");
+    db.exec("UPDATE presets SET technicalClarificationsMode = CASE WHEN technicalClarifications = 0 THEN 'disabled' ELSE 'interactive' END");
+  }
+
+  // Add new documentation columns
+  if (!columnNames.has('documentationEnabled')) {
+    db.exec('ALTER TABLE presets ADD COLUMN documentationEnabled INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!columnNames.has('documentationIndexPath')) {
+    db.exec("ALTER TABLE presets ADD COLUMN documentationIndexPath TEXT NOT NULL DEFAULT ''");
+  }
+  if (!columnNames.has('docsFolderPath')) {
+    db.exec("ALTER TABLE presets ADD COLUMN docsFolderPath TEXT NOT NULL DEFAULT ''");
   }
 }
 
@@ -78,8 +111,8 @@ type PresetRow = {
   maxSpending: number | null;
   buildCommand: string;
   buildCommandAutoDetect: number;
-  businessClarifications: number;
-  technicalClarifications: number;
+  businessClarificationsMode: string;
+  technicalClarificationsMode: string;
   microplanner: number;
   builder: number;
   microVerifier: number;
@@ -87,6 +120,9 @@ type PresetRow = {
   businessClarificationRounds: number;
   technicalClarificationRounds: number;
   maxImplementationAttempts: number;
+  documentationEnabled: number;
+  documentationIndexPath: string;
+  docsFolderPath: string;
   backends: string;
   customRules: string;
   retryAttempts: string;
@@ -97,15 +133,15 @@ function rowToPreset(row: PresetRow) {
   return {
     id: row.id,
     name: row.name,
-    provider: row.provider as 'google',
+    provider: row.provider as 'google' | 'openai' | 'deepseek',
     maxRpm: row.maxRpm,
     maxTpm: row.maxTpm,
     maxRpd: row.maxRpd,
     maxSpending: row.maxSpending,
     buildCommand: row.buildCommand,
     buildCommandAutoDetect: !!row.buildCommandAutoDetect,
-    businessClarifications: !!row.businessClarifications,
-    technicalClarifications: !!row.technicalClarifications,
+    businessClarificationsMode: row.businessClarificationsMode as 'disabled' | 'interactive' | 'auto',
+    technicalClarificationsMode: row.technicalClarificationsMode as 'disabled' | 'interactive' | 'auto',
     microplanner: !!row.microplanner,
     builder: !!row.builder,
     microVerifier: !!row.microVerifier,
@@ -113,6 +149,9 @@ function rowToPreset(row: PresetRow) {
     businessClarificationRounds: row.businessClarificationRounds,
     technicalClarificationRounds: row.technicalClarificationRounds,
     maxImplementationAttempts: row.maxImplementationAttempts,
+    documentationEnabled: !!row.documentationEnabled,
+    documentationIndexPath: row.documentationIndexPath,
+    docsFolderPath: row.docsFolderPath,
     backends: JSON.parse(row.backends),
     customRules: JSON.parse(row.customRules),
     retryAttempts: JSON.parse(row.retryAttempts),
@@ -125,23 +164,26 @@ function insertPreset(db: Database.Database, preset: ReturnType<typeof createDef
     INSERT INTO presets (
       id, name, provider, maxRpm, maxTpm, maxRpd, maxSpending,
       buildCommand, buildCommandAutoDetect,
-      businessClarifications, technicalClarifications, microplanner, builder,
+      businessClarificationsMode, technicalClarificationsMode,
+      microplanner, builder,
       microVerifier, finalVerifier, businessClarificationRounds,
       technicalClarificationRounds, maxImplementationAttempts,
+      documentationEnabled, documentationIndexPath, docsFolderPath,
       backends, customRules, retryAttempts, agentModelConfigs
     ) VALUES (
       @id, @name, @provider, @maxRpm, @maxTpm, @maxRpd, @maxSpending,
       @buildCommand, @buildCommandAutoDetect,
-      @businessClarifications, @technicalClarifications, @microplanner, @builder,
+      @businessClarificationsMode, @technicalClarificationsMode,
+      @microplanner, @builder,
       @microVerifier, @finalVerifier, @businessClarificationRounds,
       @technicalClarificationRounds, @maxImplementationAttempts,
+      @documentationEnabled, @documentationIndexPath, @docsFolderPath,
       @backends, @customRules, @retryAttempts, @agentModelConfigs
     )
   `).run({
     ...preset,
     buildCommandAutoDetect: preset.buildCommandAutoDetect ? 1 : 0,
-    businessClarifications: preset.businessClarifications ? 1 : 0,
-    technicalClarifications: preset.technicalClarifications ? 1 : 0,
+    documentationEnabled: preset.documentationEnabled ? 1 : 0,
     microplanner: preset.microplanner ? 1 : 0,
     builder: preset.builder ? 1 : 0,
     microVerifier: preset.microVerifier ? 1 : 0,
@@ -232,8 +274,7 @@ export function presetsApiPlugin(): Plugin {
             if (key === 'id') continue;
             const booleanFields = [
               'buildCommandAutoDetect',
-              'businessClarifications',
-              'technicalClarifications',
+              'documentationEnabled',
               'microplanner',
               'builder',
               'microVerifier',

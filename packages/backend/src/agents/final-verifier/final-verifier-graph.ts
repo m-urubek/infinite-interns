@@ -59,14 +59,15 @@ const invokeGraph = InvokeAgentGraphFactory.createInvokeAgentGraph(
 // ---------------------------------------------------------------------------
 
 function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainPipelineState>> {
-  const prd: NonNullable<string> =
-    state.prdAnalyzerState.output?.prd ??
-    (() => {
-      throw new Error("PRD is null or undefined");
-    })();
+  if (!Util.isNotNullOrUndf(state.analysisControllerState.output)) {
+    throw new Error("Analysis controller output is null or undefined");
+  }
+  const prd: NonNullable<string> = state.analysisControllerState.output.prd;
 
-  const clarificationsJson: NonNullable<string> = Util.isNotNullOrEmpty(state.prdGeneratorState.output.clarifications)
-    ? JSON.stringify(state.prdGeneratorState.output.clarifications, null, 2)
+  const clarificationsJson: NonNullable<string> = Util.isNotNullOrEmpty(
+    state.analysisControllerState.output.clarifications
+  )
+    ? JSON.stringify(state.analysisControllerState.output.clarifications, null, 2)
     : "No clarifications were needed.";
 
   const message: NonNullable<string> = `All implementation tasks have been completed. Perform a final holistic verification that the codebase now satisfies the full requirements.
@@ -89,6 +90,7 @@ ${prd}
     userMessage: message,
     modelConfig: agentConfig?.modelConfig ?? null,
     retryConfig: agentConfig?.retryConfig ?? null,
+    customRules: agentConfig?.customRules ?? null,
   };
   const update: NonNullable<Partial<MainPipelineState>> = { invokeAgentState: state.invokeAgentState };
   return update;

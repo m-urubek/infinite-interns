@@ -45,15 +45,15 @@ describe("finalVerifierGraph", () => {
 
     const state = MockStateFactory.createMockState({
       assignment: "Build an app",
-      prdAnalyzerState: {
+      analysisControllerState: {
         output: {
-          needsClarification: false,
-          questions: [],
-          confidence: 9,
-          reasoning: "Complete",
           prd: "Final PRD",
           clarifications: null,
+          assignment: "Build an app",
+          questions: [],
+          nextTarget: "plannerGraph",
         },
+        internal: { currentPhase: "done", businessRound: 0, technicalRound: 0, prdGenerated: true },
       },
     });
 
@@ -77,15 +77,15 @@ describe("finalVerifierGraph", () => {
 
     const state = MockStateFactory.createMockState({
       assignment: "Build an app",
-      prdAnalyzerState: {
+      analysisControllerState: {
         output: {
-          needsClarification: false,
-          questions: [],
-          confidence: 9,
-          reasoning: "Complete",
           prd: "Final PRD",
           clarifications: null,
+          assignment: "Build an app",
+          questions: [],
+          nextTarget: "plannerGraph",
         },
+        internal: { currentPhase: "done", businessRound: 0, technicalRound: 0, prdGenerated: true },
       },
     });
 

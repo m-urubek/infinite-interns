@@ -67,12 +67,14 @@ const invokeGraph = InvokeAgentGraphFactory.createInvokeAgentGraph(
 );
 
 function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainPipelineState>> {
+  const clarifications = state.analysisControllerState.output?.clarifications;
+
   const message: NonNullable<string> = `Create a comprehensive PRD document based on my assignment and answered clarifying questions.
 <assignment>
   ${state.assignment}
 </assignment>
 <clarifications>
-${Util.isNotNullOrEmpty(state.answerClarificationsState.output?.clarifications) ? JSON.stringify(state.answerClarificationsState.output.clarifications, null, 2) : "No clarifications provided, create the PRD based on the assignment only."}
+${Util.isNotNullOrEmpty(clarifications) ? JSON.stringify(clarifications, null, 2) : "No clarifications provided, create the PRD based on the assignment only."}
 </clarifications>
 `;
   const agentConfig: AgentConfig | null | undefined = state.agentConfigs?.prdGenerator ?? null;
@@ -81,6 +83,7 @@ ${Util.isNotNullOrEmpty(state.answerClarificationsState.output?.clarifications) 
     userMessage: message,
     modelConfig: agentConfig?.modelConfig ?? null,
     retryConfig: agentConfig?.retryConfig ?? null,
+    customRules: agentConfig?.customRules ?? null,
   };
   const update: NonNullable<Partial<MainPipelineState>> = { invokeAgentState: state.invokeAgentState };
   return update;
@@ -97,7 +100,7 @@ function process(state: NonNullable<MainPipelineState>): NonNullable<Partial<Mai
 
   state.prdGeneratorState.output = {
     prd: prd,
-    clarifications: state.answerClarificationsState.output?.clarifications ?? null,
+    clarifications: state.analysisControllerState.output?.clarifications ?? null,
   };
 
   const update: NonNullable<Partial<MainPipelineState>> = {

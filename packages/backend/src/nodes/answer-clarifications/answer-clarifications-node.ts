@@ -2,19 +2,19 @@ import * as Langgraph from "@langchain/langgraph";
 import { type MainPipelineState } from "../../main-pipeline-graph/main-pipeline-types";
 import { type ClarifyingQuestion } from "../../main-pipeline-graph/main-pipeline-types";
 import * as Util from "../../shared/util";
-import { type PrdAnalyzerOutput } from "../../agents/prd-analyzer/prd-analyzer-types";
+import { type AnalysisControllerOutput } from "../analysis-controller/analysis-controller-types";
 
 type HumanAnswers = NonNullable<Array<string>>;
 
 export function answerClarificationsNode(
   state: NonNullable<MainPipelineState>
 ): NonNullable<Partial<MainPipelineState>> {
-  // Read from upstream output (prdAnalyzerState.output)
-  const analyzerOutput: PrdAnalyzerOutput | null | undefined = state.prdAnalyzerState.output;
-  if (!Util.isNotNullOrUndf(analyzerOutput)) {
-    throw new Error("PRD Analyzer output is null or undefined");
+  // Read from upstream output (analysisControllerState.output)
+  const controllerOutput: AnalysisControllerOutput | null | undefined = state.analysisControllerState.output;
+  if (!Util.isNotNullOrUndf(controllerOutput)) {
+    throw new Error("Analysis controller output is null or undefined");
   }
-  const questions: NonNullable<Array<string>> = analyzerOutput.questions;
+  const questions: NonNullable<Array<string>> = controllerOutput.questions;
 
   // Interrupt execution and wait for human answers.
   // The human resumes with Command({ resume: ["answer1", "answer2", ...] })
@@ -33,15 +33,15 @@ export function answerClarificationsNode(
     }
   );
 
-  // Read previous clarifications from upstream output (prdAnalyzerState.output — direct upstream, passes them through)
-  const existingClarifications: NonNullable<Array<ClarifyingQuestion>> = analyzerOutput.clarifications ?? [];
+  // Read previous clarifications from upstream output (analysisControllerState.output — direct upstream, passes them through)
+  const existingClarifications: NonNullable<Array<ClarifyingQuestion>> = controllerOutput.clarifications ?? [];
   const allClarifications: NonNullable<Array<ClarifyingQuestion>> = [...existingClarifications, ...newClarifications];
 
   // Write own internal
   state.answerClarificationsState.internal.clarificationRound =
     state.answerClarificationsState.internal.clarificationRound + 1;
 
-  // Write own output (prdGeneratorGraph reads this on the next run)
+  // Write own output (analysisControllerNode reads this on the next run)
   state.answerClarificationsState.output = {
     clarifications: allClarifications,
   };

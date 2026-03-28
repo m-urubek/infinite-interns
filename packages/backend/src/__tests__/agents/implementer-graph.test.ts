@@ -89,6 +89,101 @@ describe("implementerGraph", () => {
     expect(userMessage).toContain("other-tasks-summary");
   });
 
+  it("includes micro-plan in user message when microplannerState.output is present", async (): Promise<void> => {
+    const mockResponse: NonNullable<InvokeAgentInternalOutput> = {
+      response: { summary: "Implemented with micro-plan guidance" },
+      success: true,
+      errorMessage: null,
+    };
+    invokeAgentMock.mockResolvedValue(mockResponse);
+
+    const state = MockStateFactory.createMockState({
+      controllerState: {
+        output: {
+          currentTaskIndex: 0,
+          currentTask: {
+            title: "Add user model",
+            description: "Create user model",
+            relevantFiles: ["src/models/user.ts"],
+          },
+          buildCommand: "npm run build",
+          prd: "Full PRD document",
+          allTasksSummary: "1. Add user model",
+          isCorrection: false,
+          correctionError: null,
+        },
+        internal: {
+          currentTaskIndex: 0,
+          failedAttempts: 0,
+          allTasksDone: false,
+          cycleCount: 0,
+          lastBuilderOutputCycle: -1,
+          lastVerifierOutputCycle: -1,
+        },
+      },
+      microplannerState: {
+        output: {
+          microPlan: "Step 1: Create file. Step 2: Add validation.",
+          existingPatternsToReuse: ["Zod validation in src/schemas/"],
+          filesToReference: ["src/models/base.ts"],
+        },
+      },
+    });
+
+    const result = await ImplementerGraph.implementerGraph.invoke(state);
+
+    expect(result.implementerState.output?.summary).toBe("Implemented with micro-plan guidance");
+
+    const messages: NonNullable<Array<{ content: string }>> = invokeAgentMock.mock.calls[0]?.[0];
+    const userMessage: NonNullable<string> = messages[0]?.content ?? "";
+    expect(userMessage).toContain("<micro-plan>");
+    expect(userMessage).toContain("Step 1: Create file. Step 2: Add validation.");
+    expect(userMessage).toContain("Zod validation in src/schemas/");
+    expect(userMessage).toContain("src/models/base.ts");
+  });
+
+  it("does not include micro-plan when microplannerState.output is null", async (): Promise<void> => {
+    const mockResponse: NonNullable<InvokeAgentInternalOutput> = {
+      response: { summary: "Implemented without micro-plan" },
+      success: true,
+      errorMessage: null,
+    };
+    invokeAgentMock.mockResolvedValue(mockResponse);
+
+    const state = MockStateFactory.createMockState({
+      controllerState: {
+        output: {
+          currentTaskIndex: 0,
+          currentTask: {
+            title: "Add user model",
+            description: "Create user model",
+            relevantFiles: ["src/models/user.ts"],
+          },
+          buildCommand: "npm run build",
+          prd: "Full PRD document",
+          allTasksSummary: "1. Add user model",
+          isCorrection: false,
+          correctionError: null,
+        },
+        internal: {
+          currentTaskIndex: 0,
+          failedAttempts: 0,
+          allTasksDone: false,
+          cycleCount: 0,
+          lastBuilderOutputCycle: -1,
+          lastVerifierOutputCycle: -1,
+        },
+      },
+      microplannerState: { output: null },
+    });
+
+    await ImplementerGraph.implementerGraph.invoke(state);
+
+    const messages: NonNullable<Array<{ content: string }>> = invokeAgentMock.mock.calls[0]?.[0];
+    const userMessage: NonNullable<string> = messages[0]?.content ?? "";
+    expect(userMessage).not.toContain("<micro-plan>");
+  });
+
   it("handles correction path with error in message and no prd", async (): Promise<void> => {
     const mockResponse: NonNullable<InvokeAgentInternalOutput> = {
       response: { summary: "Fixed type error in user model" },

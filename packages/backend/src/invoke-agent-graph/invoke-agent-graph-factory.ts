@@ -4,19 +4,35 @@ import type { InvokeAgentInput, InvokeAgentInternal, Message } from "./invoke-ag
 import * as InvokeAgentInternalUtility from "./invoke-agent-internal-utility";
 import type { InvokeAgentInternalOutput } from "./invoke-agent-internal-utility";
 import { type ZodObject, type ZodRawShape } from "zod";
-import { type ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { type BaseChatModel } from "@langchain/core/language_models/chat_models";
 import { type BackendProtocol } from "deepagents";
 import * as MainPipelineAnnotations from "../main-pipeline-graph/main-pipeline-annotations";
 import { type MainPipelineState } from "../main-pipeline-graph/main-pipeline-types";
 import * as ModelFactory from "../shared/model-factory";
 import * as GeminiFlashModel from "../shared/gemini-flash-model";
+import * as RateLimiterModule from "../shared/rate-limiter";
+import { type RateLimitsConfig } from "../shared/agent-config-types";
+
+let sharedRateLimiter: RateLimiterModule.RateLimiter | null | undefined = null;
+
+function getOrCreateRateLimiter(
+  config: RateLimitsConfig | null | undefined
+): RateLimiterModule.RateLimiter | null | undefined {
+  if (Util.isNotNullOrUndf(config) && !Util.isNotNullOrUndf(sharedRateLimiter)) {
+    sharedRateLimiter = RateLimiterModule.createRateLimiter(config);
+  }
+  const result: RateLimiterModule.RateLimiter | null | undefined = Util.isNotNullOrUndf(config)
+    ? sharedRateLimiter
+    : null;
+  return result;
+}
 
 function resolveModel(
   inputModelConfig: InvokeAgentInput["modelConfig"],
-  fallbackModel: ChatGoogleGenerativeAI | null | undefined
-): NonNullable<ChatGoogleGenerativeAI> {
+  fallbackModel: BaseChatModel | null | undefined
+): NonNullable<BaseChatModel> {
   if (Util.isNotNullOrUndf(inputModelConfig)) {
-    const resolved: NonNullable<ChatGoogleGenerativeAI> = ModelFactory.createModelFromConfig(inputModelConfig);
+    const resolved: NonNullable<BaseChatModel> = ModelFactory.createModelFromConfig(inputModelConfig);
     return resolved;
   }
   if (Util.isNotNullOrUndf(fallbackModel)) {
@@ -28,19 +44,28 @@ function resolveModel(
 export function createInvokeAgentGraph(
   // eslint-disable-next-line local/enforce-explicit-types
   backendClass: new (options: { rootDir: string }) => BackendProtocol,
-  model: ChatGoogleGenerativeAI | null | undefined,
+  model: BaseChatModel | null | undefined,
   systemPrompt: NonNullable<string>,
   responseZod: NonNullable<ZodObject<ZodRawShape>>,
   maxInSessionAttempts: NonNullable<number>,
   maxSessionAttempts: NonNullable<number>
 ) {
+  function buildEffectiveSystemPrompt(customRules: string | null | undefined): NonNullable<string> {
+    if (!Util.isNotNullOrEmpty(customRules)) {
+      return systemPrompt;
+    }
+    const effectivePrompt: NonNullable<string> = systemPrompt + "\n\n## Custom Rules\n\n" + customRules;
+    return effectivePrompt;
+  }
+
   async function firstInvokeNode(
     state: NonNullable<MainPipelineState>
   ): NonNullable<Promise<Partial<MainPipelineState>>> {
     const input: NonNullable<InvokeAgentInput> = state.invokeAgentState.input;
 
     const backend: NonNullable<BackendProtocol> = new backendClass({ rootDir: state.projectDir });
-    const resolvedModel: NonNullable<ChatGoogleGenerativeAI> = resolveModel(input.modelConfig, model);
+    const resolvedModel: NonNullable<BaseChatModel> = resolveModel(input.modelConfig, model);
+    const effectiveSystemPrompt: NonNullable<string> = buildEffectiveSystemPrompt(input.customRules);
 
     const messages: NonNullable<Array<Message>> = input.conversationHistory ?? [];
     messages.push({
@@ -48,11 +73,18 @@ export function createInvokeAgentGraph(
       content: input.userMessage,
     });
 
+    const rateLimiter: RateLimiterModule.RateLimiter | null | undefined = getOrCreateRateLimiter(
+      state.rateLimitsConfig
+    );
+    if (Util.isNotNullOrUndf(rateLimiter)) {
+      await rateLimiter.waitForAvailability();
+    }
+
     const agentOutput: NonNullable<InvokeAgentInternalOutput> = await InvokeAgentInternalUtility.invokeAgent(
       messages,
       resolvedModel,
       backend,
-      systemPrompt,
+      effectiveSystemPrompt,
       responseZod
     );
 
@@ -77,7 +109,8 @@ export function createInvokeAgentGraph(
   async function repeatNode(state: NonNullable<MainPipelineState>): NonNullable<Promise<Partial<MainPipelineState>>> {
     const internalState: NonNullable<InvokeAgentInternal> = state.invokeAgentState.internal;
     const input: NonNullable<InvokeAgentInput> = state.invokeAgentState.input;
-    const resolvedModel: NonNullable<ChatGoogleGenerativeAI> = resolveModel(input.modelConfig, model);
+    const resolvedModel: NonNullable<BaseChatModel> = resolveModel(input.modelConfig, model);
+    const effectiveSystemPrompt: NonNullable<string> = buildEffectiveSystemPrompt(input.customRules);
 
     const effectiveMaxInSession: NonNullable<number> = input.retryConfig?.maxInSessionAttempts ?? maxInSessionAttempts;
     const effectiveMaxSessions: NonNullable<number> = input.retryConfig?.maxSessionAttempts ?? maxSessionAttempts;
@@ -102,12 +135,19 @@ export function createInvokeAgentGraph(
 
       await Util.sleep(5000);
 
+      const rateLimiter: RateLimiterModule.RateLimiter | null | undefined = getOrCreateRateLimiter(
+        state.rateLimitsConfig
+      );
+      if (Util.isNotNullOrUndf(rateLimiter)) {
+        await rateLimiter.waitForAvailability();
+      }
+
       const backend: NonNullable<BackendProtocol> = new backendClass({ rootDir: state.projectDir });
       const agentOutput: NonNullable<InvokeAgentInternalOutput> = await InvokeAgentInternalUtility.invokeAgent(
         messages,
         resolvedModel,
         backend,
-        systemPrompt,
+        effectiveSystemPrompt,
         responseZod
       );
 

@@ -16,6 +16,8 @@ export type InvokeAgentInput = {
   modelConfig: ModelConfig | null | undefined;
   /** Per-agent retry configuration. If null, falls back to the factory defaults. */
   retryConfig: RetryConfig | null | undefined;
+  /** Per-agent custom rules appended to the system prompt. If null, no custom rules are added. */
+  customRules: string | null | undefined;
 };
 
 export type InvokeAgentInternal = {

@@ -25,15 +25,15 @@ describe("answerClarificationsNode", () => {
     interruptReturnValue = ["React", "PostgreSQL"];
 
     const state = MockStateFactory.createMockState({
-      prdAnalyzerState: {
+      analysisControllerState: {
         output: {
-          needsClarification: true,
-          questions: ["What framework?", "What DB?"],
-          confidence: 4,
-          reasoning: "Needs info",
           prd: "Test PRD",
           clarifications: null,
+          assignment: "Build an app",
+          questions: ["What framework?", "What DB?"],
+          nextTarget: "answerClarificationsNode",
         },
+        internal: { currentPhase: "businessAnalysis", businessRound: 1, technicalRound: 0, prdGenerated: true },
       },
     });
 
@@ -47,19 +47,19 @@ describe("answerClarificationsNode", () => {
     expect(clarifications?.[1]?.answer).toBe("PostgreSQL");
   });
 
-  it("merges with existing clarifications from prdAnalyzerState.output", () => {
+  it("merges with existing clarifications from analysisControllerState.output", () => {
     interruptReturnValue = ["New answer"];
 
     const state = MockStateFactory.createMockState({
-      prdAnalyzerState: {
+      analysisControllerState: {
         output: {
-          needsClarification: true,
-          questions: ["New question?"],
-          confidence: 4,
-          reasoning: "Needs more info",
           prd: "Test PRD",
           clarifications: [{ question: "Old Q", answer: "Old A" }],
+          assignment: "Build an app",
+          questions: ["New question?"],
+          nextTarget: "answerClarificationsNode",
         },
+        internal: { currentPhase: "businessAnalysis", businessRound: 1, technicalRound: 0, prdGenerated: true },
       },
     });
 
@@ -77,15 +77,15 @@ describe("answerClarificationsNode", () => {
     interruptReturnValue = ["answer"];
 
     const state = MockStateFactory.createMockState({
-      prdAnalyzerState: {
+      analysisControllerState: {
         output: {
-          needsClarification: true,
-          questions: ["Q?"],
-          confidence: 4,
-          reasoning: "Needs info",
           prd: "Test PRD",
           clarifications: null,
+          assignment: "Build an app",
+          questions: ["Q?"],
+          nextTarget: "answerClarificationsNode",
         },
+        internal: { currentPhase: "businessAnalysis", businessRound: 1, technicalRound: 0, prdGenerated: true },
       },
       answerClarificationsState: { internal: { clarificationRound: 3 } },
     });
@@ -95,13 +95,16 @@ describe("answerClarificationsNode", () => {
     expect(result.answerClarificationsState?.internal?.clarificationRound).toBe(4);
   });
 
-  it("throws when analyzer output is null", () => {
+  it("throws when analysis controller output is null", () => {
     const state = MockStateFactory.createMockState({
-      prdAnalyzerState: { output: null },
+      analysisControllerState: {
+        output: null,
+        internal: { currentPhase: "businessAnalysis", businessRound: 0, technicalRound: 0, prdGenerated: true },
+      },
     });
 
     expect(() => AnswerClarificationsNode.answerClarificationsNode(state)).toThrow(
-      "PRD Analyzer output is null or undefined"
+      "Analysis controller output is null or undefined"
     );
   });
 
@@ -109,15 +112,15 @@ describe("answerClarificationsNode", () => {
     interruptReturnValue = ["Only one"];
 
     const state = MockStateFactory.createMockState({
-      prdAnalyzerState: {
+      analysisControllerState: {
         output: {
-          needsClarification: true,
-          questions: ["Q1?", "Q2?", "Q3?"],
-          confidence: 3,
-          reasoning: "Multiple gaps",
           prd: "Test PRD",
           clarifications: null,
+          assignment: "Build an app",
+          questions: ["Q1?", "Q2?", "Q3?"],
+          nextTarget: "answerClarificationsNode",
         },
+        internal: { currentPhase: "businessAnalysis", businessRound: 1, technicalRound: 0, prdGenerated: true },
       },
     });
 

@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { useStream } from '@langchain/langgraph-sdk/react';
+import type { AnalysisMode } from '../types/preset';
 
 export type AgentModelConfig = {
   model: string;
@@ -15,17 +16,39 @@ export type AgentRetryConfig = {
 export type AgentConfig = {
   modelConfig: AgentModelConfig;
   retryConfig: AgentRetryConfig;
+  customRules: string | null;
 };
 
 export type AgentConfigs = Record<string, AgentConfig>;
+
+export type DocumentationConfig = {
+  enabled: boolean;
+  indexPath: string;
+  docsFolderPath: string;
+};
+
+export type RateLimitsConfig = {
+  maxRpm: number | null;
+  maxTpm: number | null;
+  maxRpd: number | null;
+  maxSpending: number | null;
+};
 
 export interface PipelineInput {
   assignment: string;
   projectDir: string;
   buildCommand: string | null;
   finalVerifierEnabled: boolean;
-  clarificationRounds: number;
+  businessClarificationsMode: AnalysisMode;
+  technicalClarificationsMode: AnalysisMode;
+  businessClarificationRounds: number;
+  technicalClarificationRounds: number;
   maxImplementationAttempts: number;
+  microplannerEnabled: boolean;
+  builderEnabled: boolean;
+  microVerifierEnabled: boolean;
+  documentationConfig: DocumentationConfig | null;
+  rateLimitsConfig: RateLimitsConfig | null;
   agentConfigs: AgentConfigs | null;
 }
 
@@ -91,8 +114,16 @@ export function usePipeline() {
       projectDir: input.projectDir,
       buildCommand: input.buildCommand,
       finalVerifierEnabled: input.finalVerifierEnabled,
-      clarificationRounds: input.clarificationRounds,
+      businessClarificationsMode: input.businessClarificationsMode,
+      technicalClarificationsMode: input.technicalClarificationsMode,
+      businessClarificationRounds: input.businessClarificationRounds,
+      technicalClarificationRounds: input.technicalClarificationRounds,
       maxImplementationAttempts: input.maxImplementationAttempts,
+      microplannerEnabled: input.microplannerEnabled,
+      builderEnabled: input.builderEnabled,
+      microVerifierEnabled: input.microVerifierEnabled,
+      documentationConfig: input.documentationConfig,
+      rateLimitsConfig: input.rateLimitsConfig,
       agentConfigs: input.agentConfigs,
     });
   }, [stream]);

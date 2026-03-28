@@ -51,15 +51,15 @@ describe("plannerGraph", () => {
 
     const state = MockStateFactory.createMockState({
       assignment: "Build a user system",
-      prdAnalyzerState: {
+      analysisControllerState: {
         output: {
-          needsClarification: false,
-          questions: [],
-          confidence: 9,
-          reasoning: "Complete",
           prd: "PRD for user system",
           clarifications: null,
+          assignment: "Build a user system",
+          questions: [],
+          nextTarget: "plannerGraph",
         },
+        internal: { currentPhase: "done", businessRound: 0, technicalRound: 0, prdGenerated: true },
       },
     });
 
@@ -84,15 +84,15 @@ describe("plannerGraph", () => {
     const state = MockStateFactory.createMockState({
       assignment: "Build a Rust app",
       buildCommand: "cargo build",
-      prdAnalyzerState: {
+      analysisControllerState: {
         output: {
-          needsClarification: false,
-          questions: [],
-          confidence: 9,
-          reasoning: "Complete",
           prd: "PRD for Rust app",
           clarifications: null,
+          assignment: "Build a Rust app",
+          questions: [],
+          nextTarget: "plannerGraph",
         },
+        internal: { currentPhase: "done", businessRound: 0, technicalRound: 0, prdGenerated: true },
       },
     });
 
@@ -104,11 +104,16 @@ describe("plannerGraph", () => {
     expect(userMessage).toContain("Use this exact command");
   });
 
-  it("throws when analyzer output is null", async (): Promise<void> => {
+  it("throws when analysis controller output is null", async (): Promise<void> => {
     const state = MockStateFactory.createMockState({
-      prdAnalyzerState: { output: null },
+      analysisControllerState: {
+        output: null,
+        internal: { currentPhase: "done", businessRound: 0, technicalRound: 0, prdGenerated: true },
+      },
     });
 
-    await expect(PlannerGraph.plannerGraph.invoke(state)).rejects.toThrow("Analyzer output is null or undefined");
+    await expect(PlannerGraph.plannerGraph.invoke(state)).rejects.toThrow(
+      "Analysis controller output is null or undefined"
+    );
   });
 });

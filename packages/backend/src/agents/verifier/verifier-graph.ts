@@ -79,6 +79,7 @@ ${controllerOutput.prd}
     userMessage: message,
     modelConfig: agentConfig?.modelConfig ?? null,
     retryConfig: agentConfig?.retryConfig ?? null,
+    customRules: agentConfig?.customRules ?? null,
   };
   const update: NonNullable<Partial<MainPipelineState>> = { invokeAgentState: state.invokeAgentState };
   return update;

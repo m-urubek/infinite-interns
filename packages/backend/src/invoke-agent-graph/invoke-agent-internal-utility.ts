@@ -1,7 +1,7 @@
 import { type ZodObject, type ZodRawShape } from "zod";
 import type z from "zod";
 import { type Message } from "./invoke-agent-types";
-import { type ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { type BaseChatModel } from "@langchain/core/language_models/chat_models";
 import * as Deepagents from "deepagents";
 import type { BackendProtocol, DeepAgent } from "deepagents";
 import * as Langchain from "langchain";
@@ -15,7 +15,7 @@ export type InvokeAgentInternalOutput = {
 
 export async function invokeAgent(
   messages: NonNullable<Array<Message>>,
-  model: NonNullable<ChatGoogleGenerativeAI>,
+  model: NonNullable<BaseChatModel>,
   backend: NonNullable<BackendProtocol>,
   systemPrompt: string | null | undefined,
   responseZod: NonNullable<ZodObject<ZodRawShape>>

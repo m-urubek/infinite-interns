@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Preset } from '../types/preset';
+import type { Preset, AnalysisMode, Provider } from '../types/preset';
 import { BackendsDialog } from './dialogs/BackendsDialog';
 import { CustomRulesDialog } from './dialogs/CustomRulesDialog';
 import { RetryAttemptsDialog } from './dialogs/RetryAttemptsDialog';
@@ -12,6 +12,18 @@ type PresetEditorFormProps = {
 };
 
 type DialogType = 'backends' | 'customRules' | 'retryAttempts' | 'modelConfig' | null;
+
+const ANALYSIS_MODE_OPTIONS: { value: AnalysisMode; label: string }[] = [
+  { value: 'disabled', label: 'Disabled' },
+  { value: 'interactive', label: 'Interactive (Human)' },
+  { value: 'auto', label: 'Auto (Agent)' },
+];
+
+const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
+  { value: 'google', label: 'Google (Gemini)' },
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'deepseek', label: 'DeepSeek' },
+];
 
 export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
   const [openDialog, setOpenDialog] = useState<DialogType>(null);
@@ -35,10 +47,12 @@ export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
           <label className="block text-xs text-white/50 mb-1">Provider</label>
           <select
             value={preset.provider}
-            onChange={(e) => onUpdate({ provider: e.target.value as 'google' })}
+            onChange={(e) => onUpdate({ provider: e.target.value as Provider })}
             className="preset-select"
           >
-            <option value="google">Google (Gemini)</option>
+            {PROVIDER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
           </select>
         </div>
       </section>
@@ -82,13 +96,42 @@ export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
         </div>
       </section>
 
-      {/* Section 4: Agent Toggles */}
+      {/* Section 4: Analysis Modes */}
+      <section className="inner-card space-y-4">
+        <h3 className="font-heading text-sm text-white/60 uppercase tracking-wider">Analysis Modes</h3>
+
+        <div>
+          <label className="block text-xs text-white/50 mb-1">Business Clarifications</label>
+          <select
+            value={preset.businessClarificationsMode}
+            onChange={(e) => onUpdate({ businessClarificationsMode: e.target.value as AnalysisMode })}
+            className="preset-select"
+          >
+            {ANALYSIS_MODE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs text-white/50 mb-1">Technical Clarifications</label>
+          <select
+            value={preset.technicalClarificationsMode}
+            onChange={(e) => onUpdate({ technicalClarificationsMode: e.target.value as AnalysisMode })}
+            className="preset-select"
+          >
+            {ANALYSIS_MODE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      </section>
+
+      {/* Section 5: Agent Toggles */}
       <section className="inner-card space-y-3">
         <h3 className="font-heading text-sm text-white/60 uppercase tracking-wider">Agent Toggles</h3>
 
         <div className="grid grid-cols-2 gap-3">
-          <ToggleRow label="Business Clarifications" checked={preset.businessClarifications} onChange={(v) => onUpdate({ businessClarifications: v })} />
-          <ToggleRow label="Technical Clarifications" checked={preset.technicalClarifications} onChange={(v) => onUpdate({ technicalClarifications: v })} />
           <ToggleRow label="Microplanner" checked={preset.microplanner} onChange={(v) => onUpdate({ microplanner: v })} />
           <ToggleRow label="Builder" checked={preset.builder} onChange={(v) => onUpdate({ builder: v })} />
           <ToggleRow label="Micro Verifier" checked={preset.microVerifier} onChange={(v) => onUpdate({ microVerifier: v })} />
@@ -96,7 +139,7 @@ export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
         </div>
       </section>
 
-      {/* Section 5: Rounds */}
+      {/* Section 6: Rounds */}
       <section className="inner-card space-y-4">
         <h3 className="font-heading text-sm text-white/60 uppercase tracking-wider">Rounds</h3>
 
@@ -108,8 +151,8 @@ export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
             max="20"
             value={preset.businessClarificationRounds}
             onChange={(e) => onUpdate({ businessClarificationRounds: parseInt(e.target.value) || 1 })}
-            disabled={!preset.businessClarifications}
-            className={`preset-number ${!preset.businessClarifications ? 'opacity-40' : ''}`}
+            disabled={preset.businessClarificationsMode === 'disabled'}
+            className={`preset-number ${preset.businessClarificationsMode === 'disabled' ? 'opacity-40' : ''}`}
           />
         </div>
 
@@ -121,8 +164,8 @@ export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
             max="20"
             value={preset.technicalClarificationRounds}
             onChange={(e) => onUpdate({ technicalClarificationRounds: parseInt(e.target.value) || 1 })}
-            disabled={!preset.technicalClarifications}
-            className={`preset-number ${!preset.technicalClarifications ? 'opacity-40' : ''}`}
+            disabled={preset.technicalClarificationsMode === 'disabled'}
+            className={`preset-number ${preset.technicalClarificationsMode === 'disabled' ? 'opacity-40' : ''}`}
           />
         </div>
 
@@ -140,7 +183,44 @@ export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
         </div>
       </section>
 
-      {/* Section 6: Advanced */}
+      {/* Section 7: Documentation */}
+      <section className="inner-card space-y-4">
+        <h3 className="font-heading text-sm text-white/60 uppercase tracking-wider">Documentation</h3>
+
+        <div className="flex items-center justify-between gap-2 py-1">
+          <span className="text-xs text-white/60">Enable Documentation Agents</span>
+          <ToggleSwitch
+            checked={preset.documentationEnabled}
+            onChange={(v) => onUpdate({ documentationEnabled: v })}
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs text-white/50 mb-1">Documentation Index Path</label>
+          <input
+            type="text"
+            value={preset.documentationIndexPath}
+            onChange={(e) => onUpdate({ documentationIndexPath: e.target.value })}
+            disabled={!preset.documentationEnabled}
+            placeholder="docs/INDEX.md"
+            className={!preset.documentationEnabled ? 'opacity-40' : ''}
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs text-white/50 mb-1">Docs Folder Path</label>
+          <input
+            type="text"
+            value={preset.docsFolderPath}
+            onChange={(e) => onUpdate({ docsFolderPath: e.target.value })}
+            disabled={!preset.documentationEnabled}
+            placeholder="docs/"
+            className={!preset.documentationEnabled ? 'opacity-40' : ''}
+          />
+        </div>
+      </section>
+
+      {/* Section 8: Advanced */}
       <section className="inner-card space-y-3">
         <h3 className="font-heading text-sm text-white/60 uppercase tracking-wider">Advanced</h3>
 
@@ -157,6 +237,7 @@ export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
       {openDialog === 'modelConfig' && (
         <ModelConfigDialog
           agentModelConfigs={preset.agentModelConfigs}
+          provider={preset.provider}
           onSave={(agentModelConfigs) => { onUpdate({ agentModelConfigs }); setOpenDialog(null); }}
           onClose={() => setOpenDialog(null)}
         />

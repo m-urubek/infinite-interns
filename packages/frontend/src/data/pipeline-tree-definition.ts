@@ -38,7 +38,7 @@ function isNodeDisabled(nodeKey: string, preset: Preset): boolean {
 
   // Clarification-linked nodes: hidden only if BOTH clarification types are off
   if (CLARIFICATION_LINKED_KEYS.has(topLevelKey)) {
-    return !preset.businessClarifications && !preset.technicalClarifications;
+    return preset.businessClarificationsMode === 'disabled' && preset.technicalClarificationsMode === 'disabled';
   }
 
   // Check direct toggle mapping
@@ -66,7 +66,7 @@ export function getStaticPresetTree(preset: Preset): TreeNode[] {
   return PIPELINE_TREE_DEFINITION
     .filter((entry) => {
       if (entry.clarificationLinked) {
-        return preset.businessClarifications || preset.technicalClarifications;
+        return preset.businessClarificationsMode !== 'disabled' || preset.technicalClarificationsMode !== 'disabled';
       }
       if (entry.toggleKey) {
         return !!preset[entry.toggleKey];

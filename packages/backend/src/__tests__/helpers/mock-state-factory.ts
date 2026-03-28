@@ -12,12 +12,20 @@ function getDefaultState(): NonNullable<MainPipelineState> {
     projectDir: "/tmp/test-project",
     buildCommand: null,
     finalVerifierEnabled: true,
-    clarificationRounds: 5,
+    businessClarificationRounds: 5,
+    technicalClarificationRounds: 5,
     maxImplementationAttempts: 7,
+    businessClarificationsMode: "interactive",
+    technicalClarificationsMode: "disabled",
+    microplannerEnabled: true,
+    builderEnabled: true,
+    microVerifierEnabled: true,
+    documentationConfig: null,
+    rateLimitsConfig: null,
     agentConfigs: null,
 
     invokeAgentState: {
-      input: { conversationHistory: null, userMessage: "", modelConfig: null, retryConfig: null },
+      input: { conversationHistory: null, userMessage: "", modelConfig: null, retryConfig: null, customRules: null },
       output: null,
       internal: {
         succeeded: null,
@@ -56,6 +64,28 @@ function getDefaultState(): NonNullable<MainPipelineState> {
     builderState: { output: null },
     verifierState: { output: null },
     finalVerifierState: { output: null },
+
+    analysisControllerState: {
+      output: null,
+      internal: {
+        currentPhase: "prdGeneration",
+        businessRound: 0,
+        technicalRound: 0,
+        prdGenerated: false,
+      },
+    },
+
+    technicalPrdAnalyzerState: { output: null },
+    businessClarificationAnswererState: { output: null },
+    technicalClarificationAnswererState: { output: null },
+
+    microplannerState: { output: null },
+    testsGeneratorState: { output: null },
+
+    initialDocumenterState: { output: null },
+    microDocumenterState: { output: null },
+    documentationIndexerState: { output: null },
+    finalDocumenterState: { output: null },
   };
   return state;
 }

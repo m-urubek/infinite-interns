@@ -27,7 +27,7 @@ export function controllerNode(state: NonNullable<MainPipelineState>): NonNullab
   const buildCommand: NonNullable<string> = plannerOutput.buildCommand;
 
   const prd: NonNullable<string> =
-    state.prdAnalyzerState.output?.prd ??
+    state.analysisControllerState.output?.prd ??
     (() => {
       throw new Error("PRD is null or undefined");
     })();

@@ -4,10 +4,19 @@
     "pipeline": "./src/main-pipeline-graph/main-pipeline-graph.ts:graph",
     "prdGenerator": "./src/agents/prd-generator/prd-generator-graph.ts:prdGeneratorGraph",
     "prdAnalyzer": "./src/agents/prd-analyzer/prd-analyzer-graph.ts:prdAnalyzerGraph",
+    "technicalPrdAnalyzer": "./src/agents/technical-prd-analyzer/technical-prd-analyzer-graph.ts:technicalPrdAnalyzerGraph",
+    "businessClarificationAnswerer": "./src/agents/business-clarification-answerer/business-clarification-answerer-graph.ts:businessClarificationAnswererGraph",
+    "technicalClarificationAnswerer": "./src/agents/technical-clarification-answerer/technical-clarification-answerer-graph.ts:technicalClarificationAnswererGraph",
     "planner": "./src/agents/planner/planner-graph.ts:plannerGraph",
     "implementer": "./src/agents/implementer/implementer-graph.ts:implementerGraph",
     "verifier": "./src/agents/verifier/verifier-graph.ts:verifierGraph",
-    "finalVerifier": "./src/agents/final-verifier/final-verifier-graph.ts:finalVerifierGraph"
+    "finalVerifier": "./src/agents/final-verifier/final-verifier-graph.ts:finalVerifierGraph",
+    "microplanner": "./src/agents/microplanner/microplanner-graph.ts:microplannerGraph",
+    "testsGenerator": "./src/agents/tests-generator/tests-generator-graph.ts:testsGeneratorGraph",
+    "initialDocumenter": "./src/agents/initial-documenter/initial-documenter-graph.ts:initialDocumenterGraph",
+    "microDocumenter": "./src/agents/micro-documenter/micro-documenter-graph.ts:microDocumenterGraph",
+    "documentationIndexer": "./src/agents/documentation-indexer/documentation-indexer-graph.ts:documentationIndexerGraph",
+    "finalDocumenter": "./src/agents/final-documenter/final-documenter-graph.ts:finalDocumenterGraph"
   },
   "env": ".env"
 }

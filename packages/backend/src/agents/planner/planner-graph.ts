@@ -6,7 +6,7 @@ import { type AgentConfig } from "../../shared/agent-config-types.js";
 import { type InvokeAgentOutput } from "../../invoke-agent-graph/invoke-agent-types.js";
 import * as MainPipelineAnnotations from "../../main-pipeline-graph/main-pipeline-annotations.js";
 import { type PlannerOutput } from "./planner-types.js";
-import { type PrdAnalyzerOutput } from "../prd-analyzer/prd-analyzer-types.js";
+import { type AnalysisControllerOutput } from "../../nodes/analysis-controller/analysis-controller-types.js";
 import * as Util from "../../shared/util.js";
 import * as Zod from "zod";
 
@@ -89,15 +89,15 @@ const invokeGraph = InvokeAgentGraphFactory.createInvokeAgentGraph(
 // ---------------------------------------------------------------------------
 
 function setup(state: NonNullable<MainPipelineState>): NonNullable<Partial<MainPipelineState>> {
-  const analyzerOutput: NonNullable<PrdAnalyzerOutput> =
-    state.prdAnalyzerState.output ??
+  const controllerOutput: NonNullable<AnalysisControllerOutput> =
+    state.analysisControllerState.output ??
     (() => {
-      throw new Error("Analyzer output is null or undefined");
+      throw new Error("Analysis controller output is null or undefined");
     })();
-  const prd: NonNullable<string> = analyzerOutput.prd;
+  const prd: NonNullable<string> = controllerOutput.prd;
 
-  const clarificationsJson: NonNullable<string> = Util.isNotNullOrEmpty(analyzerOutput.clarifications)
-    ? JSON.stringify(analyzerOutput.clarifications, null, 2)
+  const clarificationsJson: NonNullable<string> = Util.isNotNullOrEmpty(controllerOutput.clarifications)
+    ? JSON.stringify(controllerOutput.clarifications, null, 2)
     : "No clarifications were needed.";
 
   const buildCommandNote: NonNullable<string> = Util.isNotNullOrEmpty(state.buildCommand)
@@ -126,6 +126,7 @@ ${prd}
     userMessage: message,
     modelConfig: agentConfig?.modelConfig ?? null,
     retryConfig: agentConfig?.retryConfig ?? null,
+    customRules: agentConfig?.customRules ?? null,
   };
   const update: NonNullable<Partial<MainPipelineState>> = { invokeAgentState: state.invokeAgentState };
   return update;

@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { LLM_AGENT_NODES, AGENT_NODE_LABELS } from '../../types/preset';
-import type { AgentModelConfig } from '../../types/preset';
+import type { AgentModelConfig, Provider } from '../../types/preset';
 import { getUsableModelIds, GEMINI_PROFILES } from '../../data/gemini-profiles';
 
 type ModelConfigDialogProps = {
   agentModelConfigs: Record<string, AgentModelConfig>;
+  provider: Provider;
   onSave: (configs: Record<string, AgentModelConfig>) => void;
   onClose: () => void;
 };
 
-const modelIds = getUsableModelIds();
+const geminiModelIds = getUsableModelIds();
 
-export function ModelConfigDialog({ agentModelConfigs, onSave, onClose }: ModelConfigDialogProps) {
+export function ModelConfigDialog({ agentModelConfigs, provider, onSave, onClose }: ModelConfigDialogProps) {
   const [local, setLocal] = useState<Record<string, AgentModelConfig>>(
     JSON.parse(JSON.stringify(agentModelConfigs)),
   );
@@ -24,6 +25,8 @@ export function ModelConfigDialog({ agentModelConfigs, onSave, onClose }: ModelC
     }));
   }
 
+  const isGeminiProvider = provider === 'google';
+
   return (
     <div className="preset-modal-overlay" onClick={onClose}>
       <div className="preset-modal-card max-w-2xl" onClick={(e) => e.stopPropagation()}>
@@ -34,26 +37,42 @@ export function ModelConfigDialog({ agentModelConfigs, onSave, onClose }: ModelC
           </button>
         </div>
 
+        {!isGeminiProvider && (
+          <div className="mb-4 p-3 rounded-lg bg-white/[0.05] text-xs text-white/50">
+            Provider is set to <strong className="text-white/70">{provider}</strong>. Enter model IDs manually below. Thinking toggle is only available for Google (Gemini) models.
+          </div>
+        )}
+
         <div className="space-y-4">
           {LLM_AGENT_NODES.map((node) => {
             const config = local[node] ?? { model: 'gemini-3-flash-preview', temperature: 1, thinkingEnabled: false };
-            const profile = GEMINI_PROFILES[config.model];
-            const supportsThinking = profile?.reasoningOutput ?? false;
+            const profile = isGeminiProvider ? GEMINI_PROFILES[config.model] : undefined;
+            const supportsThinking = isGeminiProvider && (profile?.reasoningOutput ?? false);
 
             return (
               <div key={node} className="inner-card space-y-3">
                 <h4 className="text-xs text-white/60 font-heading">{AGENT_NODE_LABELS[node]}</h4>
 
                 <div className="grid grid-cols-[1fr_auto_auto] gap-3 items-center">
-                  <select
-                    value={config.model}
-                    onChange={(e) => handleChange(node, 'model', e.target.value)}
-                    className="preset-select text-xs"
-                  >
-                    {modelIds.map((id) => (
-                      <option key={id} value={id}>{id}</option>
-                    ))}
-                  </select>
+                  {isGeminiProvider ? (
+                    <select
+                      value={config.model}
+                      onChange={(e) => handleChange(node, 'model', e.target.value)}
+                      className="preset-select text-xs"
+                    >
+                      {geminiModelIds.map((id) => (
+                        <option key={id} value={id}>{id}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={config.model}
+                      onChange={(e) => handleChange(node, 'model', e.target.value)}
+                      placeholder={`Enter ${provider} model ID`}
+                      className="text-xs"
+                    />
+                  )}
 
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] text-white/30 w-8 text-right">{config.temperature.toFixed(1)}</span>

@@ -50,8 +50,15 @@ describe("prdAnalyzerGraph", () => {
 
     const state = MockStateFactory.createMockState({
       assignment: "Build an app",
-      prdGeneratorState: {
-        output: { prd: "A PRD about building an app", clarifications: null },
+      analysisControllerState: {
+        output: {
+          prd: "A PRD about building an app",
+          clarifications: null,
+          assignment: "Build an app",
+          questions: [],
+          nextTarget: "prdAnalyzerGraph",
+        },
+        internal: { currentPhase: "businessAnalysis", businessRound: 0, technicalRound: 0, prdGenerated: true },
       },
     });
 
@@ -78,8 +85,15 @@ describe("prdAnalyzerGraph", () => {
 
     const state = MockStateFactory.createMockState({
       assignment: "Build an app",
-      prdGeneratorState: {
-        output: { prd: "A comprehensive PRD", clarifications: null },
+      analysisControllerState: {
+        output: {
+          prd: "A comprehensive PRD",
+          clarifications: null,
+          assignment: "Build an app",
+          questions: [],
+          nextTarget: "prdAnalyzerGraph",
+        },
+        internal: { currentPhase: "businessAnalysis", businessRound: 0, technicalRound: 0, prdGenerated: true },
       },
     });
 
@@ -89,7 +103,7 @@ describe("prdAnalyzerGraph", () => {
     expect(result.prdAnalyzerState.output?.questions).toHaveLength(0);
   });
 
-  it("passes through prd and clarifications from prdGeneratorState", async (): Promise<void> => {
+  it("passes through prd and clarifications from analysisControllerState", async (): Promise<void> => {
     const mockResponse: NonNullable<InvokeAgentInternalOutput> = {
       response: {
         needsClarification: false,
@@ -107,8 +121,15 @@ describe("prdAnalyzerGraph", () => {
     ];
     const state = MockStateFactory.createMockState({
       assignment: "Build an app",
-      prdGeneratorState: {
-        output: { prd: "PRD with React details", clarifications: existingClarifications },
+      analysisControllerState: {
+        output: {
+          prd: "PRD with React details",
+          clarifications: existingClarifications,
+          assignment: "Build an app",
+          questions: [],
+          nextTarget: "prdAnalyzerGraph",
+        },
+        internal: { currentPhase: "businessAnalysis", businessRound: 0, technicalRound: 0, prdGenerated: true },
       },
     });
 
