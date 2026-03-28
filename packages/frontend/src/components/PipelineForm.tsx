@@ -11,10 +11,17 @@ interface PipelineFormProps {
 function buildAgentConfigs(preset: Preset): AgentConfigs {
   const configs: AgentConfigs = {};
   for (const node of LLM_AGENT_NODES) {
-    const modelConfig = preset.agentModelConfigs[node] ?? {
+    const agentModelConfig = preset.agentModelConfigs[node] ?? {
+      provider: 'google',
       model: 'gemini-3-flash-preview',
       temperature: 1,
       thinkingEnabled: false,
+    };
+    const modelConfig = {
+      provider: agentModelConfig.provider,
+      model: agentModelConfig.model,
+      temperature: agentModelConfig.temperature,
+      thinkingEnabled: agentModelConfig.thinkingEnabled,
     };
     const retryConfig = preset.retryAttempts[node] ?? {
       maxInSessionAttempts: 3,

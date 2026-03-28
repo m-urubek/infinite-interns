@@ -1,7 +1,7 @@
 import type { Plugin, Connect } from 'vite';
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
-import type { IncomingMessage } from 'http';
+import type { IncomingMessage, ServerResponse } from 'http';
 import { createDefaultPreset } from '../types/preset';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -45,7 +45,8 @@ function initDb(db: Database.Database): void {
       backends TEXT NOT NULL DEFAULT '{}',
       customRules TEXT NOT NULL DEFAULT '{}',
       retryAttempts TEXT NOT NULL DEFAULT '{}',
-      agentModelConfigs TEXT NOT NULL DEFAULT '{}'
+      agentModelConfigs TEXT NOT NULL DEFAULT '{}',
+      agentRateLimits TEXT NOT NULL DEFAULT '{}'
     );
 
     CREATE TABLE IF NOT EXISTS settings (
@@ -99,12 +100,43 @@ function migrateSchema(db: Database.Database): void {
   if (!columnNames.has('docsFolderPath')) {
     db.exec("ALTER TABLE presets ADD COLUMN docsFolderPath TEXT NOT NULL DEFAULT ''");
   }
+
+  // Migrate global provider into per-agent agentModelConfigs
+  if (columnNames.has('provider')) {
+    const rows = db.prepare('SELECT id, provider, agentModelConfigs FROM presets').all() as {
+      id: string;
+      provider: string;
+      agentModelConfigs: string;
+    }[];
+    for (const row of rows) {
+      const configs = JSON.parse(row.agentModelConfigs) as Record<string, Record<string, unknown>>;
+      let changed = false;
+      for (const key of Object.keys(configs)) {
+        if (!configs[key].provider) {
+          configs[key].provider = row.provider || 'google';
+          changed = true;
+        }
+      }
+      if (changed) {
+        db.prepare('UPDATE presets SET agentModelConfigs = ? WHERE id = ?').run(
+          JSON.stringify(configs),
+          row.id,
+        );
+      }
+    }
+    // Note: SQLite doesn't support DROP COLUMN in older versions,
+    // so we leave the column but stop reading/writing it.
+  }
+
+  // Add agentRateLimits column
+  if (!columnNames.has('agentRateLimits')) {
+    db.exec("ALTER TABLE presets ADD COLUMN agentRateLimits TEXT NOT NULL DEFAULT '{}'");
+  }
 }
 
 type PresetRow = {
   id: string;
   name: string;
-  provider: string;
   maxRpm: number | null;
   maxTpm: number | null;
   maxRpd: number | null;
@@ -127,13 +159,13 @@ type PresetRow = {
   customRules: string;
   retryAttempts: string;
   agentModelConfigs: string;
+  agentRateLimits: string;
 };
 
 function rowToPreset(row: PresetRow) {
   return {
     id: row.id,
     name: row.name,
-    provider: row.provider as 'google' | 'openai' | 'deepseek',
     maxRpm: row.maxRpm,
     maxTpm: row.maxTpm,
     maxRpd: row.maxRpd,
@@ -156,29 +188,30 @@ function rowToPreset(row: PresetRow) {
     customRules: JSON.parse(row.customRules),
     retryAttempts: JSON.parse(row.retryAttempts),
     agentModelConfigs: JSON.parse(row.agentModelConfigs),
+    agentRateLimits: JSON.parse(row.agentRateLimits),
   };
 }
 
 function insertPreset(db: Database.Database, preset: ReturnType<typeof createDefaultPreset>): void {
   db.prepare(`
     INSERT INTO presets (
-      id, name, provider, maxRpm, maxTpm, maxRpd, maxSpending,
+      id, name, maxRpm, maxTpm, maxRpd, maxSpending,
       buildCommand, buildCommandAutoDetect,
       businessClarificationsMode, technicalClarificationsMode,
       microplanner, builder,
       microVerifier, finalVerifier, businessClarificationRounds,
       technicalClarificationRounds, maxImplementationAttempts,
       documentationEnabled, documentationIndexPath, docsFolderPath,
-      backends, customRules, retryAttempts, agentModelConfigs
+      backends, customRules, retryAttempts, agentModelConfigs, agentRateLimits
     ) VALUES (
-      @id, @name, @provider, @maxRpm, @maxTpm, @maxRpd, @maxSpending,
+      @id, @name, @maxRpm, @maxTpm, @maxRpd, @maxSpending,
       @buildCommand, @buildCommandAutoDetect,
       @businessClarificationsMode, @technicalClarificationsMode,
       @microplanner, @builder,
       @microVerifier, @finalVerifier, @businessClarificationRounds,
       @technicalClarificationRounds, @maxImplementationAttempts,
       @documentationEnabled, @documentationIndexPath, @docsFolderPath,
-      @backends, @customRules, @retryAttempts, @agentModelConfigs
+      @backends, @customRules, @retryAttempts, @agentModelConfigs, @agentRateLimits
     )
   `).run({
     ...preset,
@@ -192,10 +225,11 @@ function insertPreset(db: Database.Database, preset: ReturnType<typeof createDef
     customRules: JSON.stringify(preset.customRules),
     retryAttempts: JSON.stringify(preset.retryAttempts),
     agentModelConfigs: JSON.stringify(preset.agentModelConfigs),
+    agentRateLimits: JSON.stringify(preset.agentRateLimits),
   });
 }
 
-function json(res: Connect.ServerResponse, data: unknown, status = 200): void {
+function json(res: ServerResponse, data: unknown, status = 200): void {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json');
   res.end(JSON.stringify(data));
@@ -211,7 +245,7 @@ export function presetsApiPlugin(): Plugin {
       db.pragma('journal_mode = WAL');
       initDb(db);
 
-      server.middlewares.use(async (req: Connect.IncomingMessage, res: Connect.ServerResponse, next: Connect.NextFunction) => {
+      server.middlewares.use(async (req: Connect.IncomingMessage, res: ServerResponse, next: Connect.NextFunction) => {
         const url = req.url ?? '';
         const method = req.method ?? 'GET';
 
@@ -280,7 +314,7 @@ export function presetsApiPlugin(): Plugin {
               'microVerifier',
               'finalVerifier',
             ];
-            const jsonFields = ['backends', 'customRules', 'retryAttempts', 'agentModelConfigs'];
+            const jsonFields = ['backends', 'customRules', 'retryAttempts', 'agentModelConfigs', 'agentRateLimits'];
 
             if (booleanFields.includes(key)) {
               updates.push(`${key} = @${key}`);

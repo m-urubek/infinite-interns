@@ -19,6 +19,7 @@ Database file: `packages/frontend/presets.db` (gitignored)
 The plugin auto-migrates old schemas:
 - Old boolean `businessClarifications`/`technicalClarifications` columns are migrated to `businessClarificationsMode`/`technicalClarificationsMode` (text: 'disabled'/'interactive'/'auto')
 - New columns (`documentationEnabled`, `documentationIndexPath`, `docsFolderPath`) are added if missing
+- Old global `provider` column is migrated into each entry of `agentModelConfigs` JSON (column kept but no longer read/written)
 
 ## API Endpoints
 
@@ -55,19 +56,17 @@ All preset fields are now connected to the backend pipeline input:
 
 ## Per-Agent Configuration
 
+All per-agent settings (provider, model, temperature, thinking, backend, retry attempts, custom rules) are configured in a unified "Agent Configuration" section of the preset editor. Each agent has an expandable card showing all applicable settings. Non-LLM agents (answerClarifications, controller, builder) only show backend and retry settings.
+
 ### Model Configuration (15 LLM agents)
 Each LLM agent has its own:
-- **model**: Model ID (Gemini dropdown for Google provider, manual text input for OpenAI/DeepSeek)
+- **provider**: `'google' | 'openai' | 'deepseek'` — stored per-agent in `AgentModelConfig.provider`
+- **model**: Model ID (Gemini dropdown when provider is Google, manual text input for OpenAI/DeepSeek)
 - **temperature**: 0-2 range
-- **thinkingEnabled**: Whether to enable reasoning output (Google/Gemini only)
-
-Configured via the "Configure Models" button in the preset editor's Advanced section.
+- **thinkingEnabled**: Whether to enable reasoning output (Google/Gemini only, auto-disabled for non-Gemini providers)
 
 ### Custom Rules
 Custom rules are per-agent plain text strings that get appended to the agent's system prompt under a "## Custom Rules" section. Stored in `AgentConfig.customRules`, wired through `InvokeAgentInput.customRules` → `invoke-agent-graph-factory` builds effective system prompt.
-
-### Provider Selection
-Provider is global per preset (`'google' | 'openai' | 'deepseek'`). When set to non-Google, the ModelConfigDialog shows a text input instead of a Gemini model dropdown and disables the thinking toggle.
 
 ## Rate Limiting
 

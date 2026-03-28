@@ -3,6 +3,7 @@ import { useStream } from '@langchain/langgraph-sdk/react';
 import type { AnalysisMode } from '../types/preset';
 
 export type AgentModelConfig = {
+  provider: string;
   model: string;
   temperature: number;
   thinkingEnabled: boolean;

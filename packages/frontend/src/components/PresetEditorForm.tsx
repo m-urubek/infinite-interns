@@ -1,17 +1,10 @@
-import { useState } from 'react';
-import type { Preset, AnalysisMode, Provider } from '../types/preset';
-import { BackendsDialog } from './dialogs/BackendsDialog';
-import { CustomRulesDialog } from './dialogs/CustomRulesDialog';
-import { RetryAttemptsDialog } from './dialogs/RetryAttemptsDialog';
-import { ModelConfigDialog } from './dialogs/ModelConfigDialog';
-import { Settings2 } from 'lucide-react';
+import type { Preset, AnalysisMode, AgentModelConfig, AgentRateLimits, RetryConfig } from '../types/preset';
+import { AgentConfigPanel } from './AgentConfigPanel';
 
 type PresetEditorFormProps = {
   preset: Preset;
   onUpdate: (updates: Partial<Preset>) => void;
 };
-
-type DialogType = 'backends' | 'customRules' | 'retryAttempts' | 'modelConfig' | null;
 
 const ANALYSIS_MODE_OPTIONS: { value: AnalysisMode; label: string }[] = [
   { value: 'disabled', label: 'Disabled' },
@@ -19,14 +12,37 @@ const ANALYSIS_MODE_OPTIONS: { value: AnalysisMode; label: string }[] = [
   { value: 'auto', label: 'Auto (Agent)' },
 ];
 
-const PROVIDER_OPTIONS: { value: Provider; label: string }[] = [
-  { value: 'google', label: 'Google (Gemini)' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'deepseek', label: 'DeepSeek' },
-];
-
 export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
-  const [openDialog, setOpenDialog] = useState<DialogType>(null);
+
+  function handleUpdateModelConfig(node: string, config: AgentModelConfig) {
+    onUpdate({
+      agentModelConfigs: { ...preset.agentModelConfigs, [node]: config },
+    });
+  }
+
+  function handleUpdateBackend(node: string, backend: string) {
+    onUpdate({
+      backends: { ...preset.backends, [node]: backend },
+    });
+  }
+
+  function handleUpdateRetry(node: string, retry: RetryConfig) {
+    onUpdate({
+      retryAttempts: { ...preset.retryAttempts, [node]: retry },
+    });
+  }
+
+  function handleUpdateCustomRules(node: string, rules: string) {
+    onUpdate({
+      customRules: { ...preset.customRules, [node]: rules },
+    });
+  }
+
+  function handleUpdateRateLimits(node: string, limits: AgentRateLimits) {
+    onUpdate({
+      agentRateLimits: { ...preset.agentRateLimits, [node]: limits },
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -41,19 +57,6 @@ export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
             value={preset.name}
             onChange={(e) => onUpdate({ name: e.target.value })}
           />
-        </div>
-
-        <div>
-          <label className="block text-xs text-white/50 mb-1">Provider</label>
-          <select
-            value={preset.provider}
-            onChange={(e) => onUpdate({ provider: e.target.value as Provider })}
-            className="preset-select"
-          >
-            {PROVIDER_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
         </div>
       </section>
 
@@ -220,49 +223,25 @@ export function PresetEditorForm({ preset, onUpdate }: PresetEditorFormProps) {
         </div>
       </section>
 
-      {/* Section 8: Advanced */}
-      <section className="inner-card space-y-3">
-        <h3 className="font-heading text-sm text-white/60 uppercase tracking-wider">Advanced</h3>
-
-        <div className="grid grid-cols-2 gap-3">
-          <AdvancedButton label="Configure Models" onClick={() => setOpenDialog('modelConfig')} />
-          <AdvancedButton label="Configure Backends" onClick={() => setOpenDialog('backends')} />
-          <AdvancedButton label="Custom Rules" onClick={() => setOpenDialog('customRules')} />
-          <AdvancedButton label="Retry Attempts" onClick={() => setOpenDialog('retryAttempts')} />
-          <AdvancedButton label="Custom Tools" disabled />
-        </div>
-      </section>
-
-      {/* Dialogs */}
-      {openDialog === 'modelConfig' && (
-        <ModelConfigDialog
+      {/* Section 8: Agent Configuration (replaces 4 separate dialogs) */}
+      <section className="space-y-3">
+        <h3 className="font-heading text-sm text-white/60 uppercase tracking-wider px-1">
+          Agent Configuration
+        </h3>
+        <AgentConfigPanel
           agentModelConfigs={preset.agentModelConfigs}
-          provider={preset.provider}
-          onSave={(agentModelConfigs) => { onUpdate({ agentModelConfigs }); setOpenDialog(null); }}
-          onClose={() => setOpenDialog(null)}
-        />
-      )}
-      {openDialog === 'backends' && (
-        <BackendsDialog
           backends={preset.backends}
-          onSave={(backends) => { onUpdate({ backends }); setOpenDialog(null); }}
-          onClose={() => setOpenDialog(null)}
-        />
-      )}
-      {openDialog === 'customRules' && (
-        <CustomRulesDialog
-          customRules={preset.customRules}
-          onSave={(customRules) => { onUpdate({ customRules }); setOpenDialog(null); }}
-          onClose={() => setOpenDialog(null)}
-        />
-      )}
-      {openDialog === 'retryAttempts' && (
-        <RetryAttemptsDialog
           retryAttempts={preset.retryAttempts}
-          onSave={(retryAttempts) => { onUpdate({ retryAttempts }); setOpenDialog(null); }}
-          onClose={() => setOpenDialog(null)}
+          customRules={preset.customRules}
+          agentRateLimits={preset.agentRateLimits}
+          globalRateLimits={{ maxRpm: preset.maxRpm, maxTpm: preset.maxTpm, maxRpd: preset.maxRpd, maxSpending: preset.maxSpending }}
+          onUpdateModelConfig={handleUpdateModelConfig}
+          onUpdateBackend={handleUpdateBackend}
+          onUpdateRetry={handleUpdateRetry}
+          onUpdateCustomRules={handleUpdateCustomRules}
+          onUpdateRateLimits={handleUpdateRateLimits}
         />
-      )}
+      </section>
     </div>
   );
 }
@@ -349,32 +328,5 @@ function RateLimitField({
         </label>
       </div>
     </div>
-  );
-}
-
-function AdvancedButton({
-  label,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  onClick?: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-heading transition-colors ${
-        disabled
-          ? 'text-white/20 bg-white/[0.03] cursor-not-allowed'
-          : 'text-white/50 bg-white/[0.05] hover:bg-white/[0.08] hover:text-white/70'
-      }`}
-    >
-      <Settings2 size={12} />
-      {label}
-      {disabled && <span className="text-[10px] text-white/15">(coming soon)</span>}
-    </button>
   );
 }

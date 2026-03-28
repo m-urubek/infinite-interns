@@ -6,9 +6,17 @@ export type RetryConfig = {
 };
 
 export type AgentModelConfig = {
+  provider: Provider;
   model: string;
   temperature: number;
   thinkingEnabled: boolean;
+};
+
+export type AgentRateLimits = {
+  maxRpm: number | null;
+  maxTpm: number | null;
+  maxRpd: number | null;
+  maxSpending: number | null;
 };
 
 export type AnalysisMode = 'disabled' | 'interactive' | 'auto';
@@ -18,7 +26,6 @@ export type Provider = 'google' | 'openai' | 'deepseek';
 export type Preset = {
   id: string;
   name: string;
-  provider: Provider;
   maxRpm: number | null;
   maxTpm: number | null;
   maxRpd: number | null;
@@ -41,6 +48,7 @@ export type Preset = {
   customRules: Record<string, string>;
   retryAttempts: Record<string, RetryConfig>;
   agentModelConfigs: Record<string, AgentModelConfig>;
+  agentRateLimits: Record<string, AgentRateLimits>;
 };
 
 export const AGENT_NODES = [
@@ -141,9 +149,17 @@ const DEFAULT_RETRY: RetryConfig = {
 };
 
 const DEFAULT_MODEL_CONFIG: AgentModelConfig = {
+  provider: 'google',
   model: 'gemini-3-flash-preview',
   temperature: 1,
   thinkingEnabled: false,
+};
+
+const DEFAULT_AGENT_RATE_LIMITS: AgentRateLimits = {
+  maxRpm: null,
+  maxTpm: null,
+  maxRpd: null,
+  maxSpending: null,
 };
 
 export function createDefaultPreset(name = 'Default'): Preset {
@@ -151,6 +167,7 @@ export function createDefaultPreset(name = 'Default'): Preset {
   const customRules: Record<string, string> = {};
   const retryAttempts: Record<string, RetryConfig> = {};
   const agentModelConfigs: Record<string, AgentModelConfig> = {};
+  const agentRateLimits: Record<string, AgentRateLimits> = {};
 
   for (const node of AGENT_NODES) {
     backends[node] = DEFAULT_BACKENDS[node];
@@ -160,12 +177,12 @@ export function createDefaultPreset(name = 'Default'): Preset {
 
   for (const node of LLM_AGENT_NODES) {
     agentModelConfigs[node] = { ...DEFAULT_MODEL_CONFIG };
+    agentRateLimits[node] = { ...DEFAULT_AGENT_RATE_LIMITS };
   }
 
   return {
     id: uuidv4(),
     name,
-    provider: 'google',
     maxRpm: null,
     maxTpm: null,
     maxRpd: null,
@@ -188,5 +205,6 @@ export function createDefaultPreset(name = 'Default'): Preset {
     customRules,
     retryAttempts,
     agentModelConfigs,
+    agentRateLimits,
   };
 }
